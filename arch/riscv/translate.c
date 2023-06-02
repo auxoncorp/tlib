@@ -1237,7 +1237,7 @@ static inline void announce_if_jump_or_ret(int rd, int rs1, target_long imm, tar
     } else if (is_jal_RA_based(rd)) {
         type = STACK_FRAME_ADD;
     }
- 
+
     if (next_pc == PROFILER_TCG_PC) {
         generate_stack_announcement(cpu_pc, type, false);
     } else {
@@ -5603,7 +5603,7 @@ static int disas_insn(CPUState *env, DisasContext *dc)
     // Custom instructions with length up to 64 bits are handled above,
     // but standard RISC-V instructions currently are no longer than 32 bits.
     if (instruction_length == 0 || instruction_length > 4) {
-        tlib_printf(LOG_LEVEL_ERROR, "Unsupported instruction length: %d bits. PC: 0x%llx, opcode: 0x%0*llx", 
+        tlib_printf(LOG_LEVEL_ERROR, "Unsupported instruction length: %d bits. PC: 0x%llx, opcode: 0x%0*llx",
                     8 * instruction_length , dc->base.pc,  /* padding */ 2 * instruction_length, format_opcode(dc->opcode, instruction_length));
     }
     // Default to 32-bit if encountered an instruction of unsupported length.
