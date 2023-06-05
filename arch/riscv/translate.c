@@ -2269,46 +2269,47 @@ static void gen_fp_arith(DisasContext *dc, uint32_t opc, int rd, int rs1, int rs
         break;
     case OPC_RISC_FCVT_W_S:
         /* also OPC_RISC_FCVT_WU_S, OPC_RISC_FCVT_L_S, OPC_RISC_FCVT_LU_S */
-        if (rs2 == 0x0) {        /* FCVT_W_S */
+        switch(rs2) {
+        case 0x0: /* FCVT_W_S */
             gen_fp_helper_gpr_1fpr_1tcg(gen_helper_fcvt_w_s, RISCV_SINGLE_PRECISION, write_int_rd, rd, rs1, rm_reg);
-        } else if (rs2 == 0x1) { /* FCVT_WU_S */
+            break;
+        case 0x1: /* FCVT_WU_S */
             gen_fp_helper_gpr_1fpr_1tcg(gen_helper_fcvt_wu_s, RISCV_SINGLE_PRECISION, write_int_rd, rd, rs1, rm_reg);
-        } else if (rs2 == 0x2) { /* FCVT_L_S */
+            break;
 #if defined(TARGET_RISCV64)
+        case 0x2: /* FCVT_L_S */
             gen_fp_helper_gpr_1fpr_1tcg(gen_helper_fcvt_l_s, RISCV_SINGLE_PRECISION, write_int_rd, rd, rs1, rm_reg);
-#else
-            kill_unknown(dc, RISCV_EXCP_ILLEGAL_INST);
-#endif
-        } else if (rs2 == 0x3) { /* FCVT_LU_S */
-#if defined(TARGET_RISCV64)
+            break;
+        case 0x3: /* FCVT_LU_S */
             gen_fp_helper_gpr_1fpr_1tcg(gen_helper_fcvt_lu_s, RISCV_SINGLE_PRECISION, write_int_rd, rd, rs1, rm_reg);
-#else
-            kill_unknown(dc, RISCV_EXCP_ILLEGAL_INST);
+            break;
 #endif
-        } else {
+        default:
             kill_unknown(dc, RISCV_EXCP_ILLEGAL_INST);
+            break;
         }
         break;
     case OPC_RISC_FCVT_S_W:
         /* also OPC_RISC_FCVT_S_WU, OPC_RISC_FCVT_S_L, OPC_RISC_FCVT_S_LU */
-        if (rs2 == 0) {          /* FCVT_S_W */
+        gen_get_gpr(write_int_rd, rs1);
+        switch(rs2) {
+        case 0x0: /* FCVT_S_W */
             gen_fp_helper_fpr_1gpr_1tcg(gen_helper_fcvt_s_w, RISCV_SINGLE_PRECISION, write_int_rd, rd, rs1, rm_reg);
-        } else if (rs2 == 0x1) { /* FCVT_S_WU */
+            break;
+        case 0x1: /* FCVT_S_WU */
             gen_fp_helper_fpr_1gpr_1tcg(gen_helper_fcvt_s_wu, RISCV_SINGLE_PRECISION, write_int_rd, rd, rs1, rm_reg);
-        } else if (rs2 == 0x2) { /* FCVT_S_L */
+            break;
 #if defined(TARGET_RISCV64)
+        case 0x2: /* FCVT_S_L */
             gen_fp_helper_fpr_1gpr_1tcg(gen_helper_fcvt_s_l, RISCV_SINGLE_PRECISION, write_int_rd, rd, rs1, rm_reg);
-#else
-            kill_unknown(dc, RISCV_EXCP_ILLEGAL_INST);
-#endif
-        } else if (rs2 == 0x3) { /* FCVT_S_LU */
-#if defined(TARGET_RISCV64)
+            break;
+        case 0x3: /* FCVT_S_LU */
             gen_fp_helper_fpr_1gpr_1tcg(gen_helper_fcvt_s_lu, RISCV_SINGLE_PRECISION, write_int_rd, rd, rs1, rm_reg);
-#else
-            kill_unknown(dc, RISCV_EXCP_ILLEGAL_INST);
+            break;
 #endif
-        } else {
+        default:
             kill_unknown(dc, RISCV_EXCP_ILLEGAL_INST);
+            break;
         }
         break;
     case OPC_RISC_FMV_X_S: {
@@ -2439,48 +2440,48 @@ static void gen_fp_arith(DisasContext *dc, uint32_t opc, int rd, int rs1, int rs
         break;
     case OPC_RISC_FCVT_W_D:
         /* also OPC_RISC_FCVT_WU_D, OPC_RISC_FCVT_L_D, OPC_RISC_FCVT_LU_D */
-        if (rs2 == 0x0) {
+        switch(rs2) {
+        case 0x0:
             gen_helper_fcvt_w_d(write_int_rd, cpu_env, cpu_fpr[rs1], rm_reg);
-        } else if (rs2 == 0x1) {
+            break;
+        case 0x1:
             gen_helper_fcvt_wu_d(write_int_rd, cpu_env, cpu_fpr[rs1], rm_reg);
-        } else if (rs2 == 0x2) {
+            break;
 #if defined(TARGET_RISCV64)
+        case 0x2:
             gen_helper_fcvt_l_d(write_int_rd, cpu_env, cpu_fpr[rs1], rm_reg);
-#else
-            kill_unknown(dc, RISCV_EXCP_ILLEGAL_INST);
-#endif
-        } else if (rs2 == 0x3) {
-#if defined(TARGET_RISCV64)
+            break;
+        case 0x3:
             gen_helper_fcvt_lu_d(write_int_rd, cpu_env, cpu_fpr[rs1], rm_reg);
-#else
-            kill_unknown(dc, RISCV_EXCP_ILLEGAL_INST);
+            break;
 #endif
-        } else {
+        default:
             kill_unknown(dc, RISCV_EXCP_ILLEGAL_INST);
+            break;
         }
         gen_set_gpr(rd, write_int_rd);
         break;
     case OPC_RISC_FCVT_D_W:
         /* also OPC_RISC_FCVT_D_WU, OPC_RISC_FCVT_D_L, OPC_RISC_FCVT_D_LU */
         gen_get_gpr(write_int_rd, rs1);
-        if (rs2 == 0x0) {
+        switch(rs2) {
+        case 0x0:
             gen_helper_fcvt_d_w(cpu_fpr[rd], cpu_env, write_int_rd, rm_reg);
-        } else if (rs2 == 0x1) {
+            break;
+        case 0x1:
             gen_helper_fcvt_d_wu(cpu_fpr[rd], cpu_env, write_int_rd, rm_reg);
-        } else if (rs2 == 0x2) {
+            break;
 #if defined(TARGET_RISCV64)
+        case 0x2:
             gen_helper_fcvt_d_l(cpu_fpr[rd], cpu_env, write_int_rd, rm_reg);
-#else
-            kill_unknown(dc, RISCV_EXCP_ILLEGAL_INST);
-#endif
-        } else if (rs2 == 0x3) {
-#if defined(TARGET_RISCV64)
+            break;
+        case 0x3:
             gen_helper_fcvt_d_lu(cpu_fpr[rd], cpu_env, write_int_rd, rm_reg);
-#else
-            kill_unknown(dc, RISCV_EXCP_ILLEGAL_INST);
+            break;
 #endif
-        } else {
+        default:
             kill_unknown(dc, RISCV_EXCP_ILLEGAL_INST);
+            break;
         }
         break;
 #if defined(TARGET_RISCV64)
