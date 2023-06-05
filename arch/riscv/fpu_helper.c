@@ -94,6 +94,22 @@ ieee_rm[rm]; })
     raise_exception_and_sync_pc(env, RISCV_EXCP_ILLEGAL_INST); \
 }
 
+/* adapted from spike */
+#define isNaNF32UI(ui) (0xFF000000 < (uint32_t)((uint_fast32_t)ui << 1))
+#define signF32UI(a)   ((bool)((uint32_t)a >> 31))
+#define expF32UI(a)    ((int_fast16_t)(a >> 23) & 0xFF)
+#define fracF32UI(a)   (a & 0x007FFFFF)
+
+union ui32_f32 { uint32_t ui; uint32_t f; };
+
+#define isNaNF64UI(ui) (UINT64_C(0xFFE0000000000000) \
+                       < (uint64_t)((uint_fast64_t)ui << 1))
+#define signF64UI(a)   ((bool)((uint64_t) a >> 63))
+#define expF64UI(a)    ((int_fast16_t)(a >> 52) & 0x7FF)
+#define fracF64UI(a)   (a & UINT64_C(0x000FFFFFFFFFFFFF))
+
+union ui64_f64 { uint64_t ui; uint64_t f; };
+
 /* convert softfloat library flag numbers to RISC-V */
 unsigned int softfloat_flags_to_riscv(unsigned int flags)
 {
@@ -396,7 +412,7 @@ target_ulong helper_fcvt_wu_s(CPUState *env, uint64_t frs1, uint64_t rm)
 {
     require_fp;
     set_float_rounding_mode(RM, &env->fp_status);
-    frs1 = (int32_t)float32_to_uint32(frs1, &env->fp_status);
+    frs1 = (!isNaNF32UI(frs1) && signF32UI(frs1)) ? 0 : (int32_t)float32_to_uint32(frs1, &env->fp_status);
     set_fp_exceptions();
     mark_fs_dirty();
     return frs1;
@@ -416,7 +432,7 @@ uint64_t helper_fcvt_lu_s(CPUState *env, uint64_t frs1, uint64_t rm)
 {
     require_fp;
     set_float_rounding_mode(RM, &env->fp_status);
-    frs1 = float32_to_uint64(frs1, &env->fp_status);
+    frs1 = (!isNaNF32UI(frs1) && signF32UI(frs1)) ? 0 : float32_to_uint64(frs1, &env->fp_status);
     set_fp_exceptions();
     mark_fs_dirty();
     return frs1;
@@ -535,14 +551,6 @@ int64_t helper_fcvt_l_s_rod(CPUState *env, uint32_t frs1)
     mark_fs_dirty();
     return frs1;
 }
-
-/* adapted from spike */
-#define isNaNF32UI(ui) (0xFF000000 < (uint32_t)((uint_fast32_t)ui << 1))
-#define signF32UI(a)   ((bool)((uint32_t)a >> 31))
-#define expF32UI(a)    ((int_fast16_t)(a >> 23) & 0xFF)
-#define fracF32UI(a)   (a & 0x007FFFFF)
-
-union ui32_f32 { uint32_t ui; uint32_t f; };
 
 uint_fast16_t float32_classify(uint32_t a, float_status *status)
 {
@@ -718,7 +726,7 @@ target_ulong helper_fcvt_wu_d(CPUState *env, uint64_t frs1, uint64_t rm)
 {
     require_fp;
     set_float_rounding_mode(RM, &env->fp_status);
-    frs1 = (int64_t)((int32_t)float64_to_uint32(frs1, &env->fp_status));
+    frs1 = (!isNaNF64UI(frs1) && signF64UI(frs1)) ? 0 : (int64_t)((int32_t)float64_to_uint32(frs1, &env->fp_status));
     set_fp_exceptions();
     mark_fs_dirty();
     return frs1;
@@ -738,7 +746,7 @@ uint64_t helper_fcvt_lu_d(CPUState *env, uint64_t frs1, uint64_t rm)
 {
     require_fp;
     set_float_rounding_mode(RM, &env->fp_status);
-    frs1 = float64_to_uint64(frs1, &env->fp_status);
+    frs1 = (!isNaNF64UI(frs1) && signF64UI(frs1)) ? 0 : float64_to_uint64(frs1, &env->fp_status);
     set_fp_exceptions();
     mark_fs_dirty();
     return frs1;
@@ -1291,15 +1299,6 @@ void helper_vfmv_sf(CPUState *env, uint32_t vd, float64 rs1)
             break;
     }
 }
-
-/* adapted from spike */
-#define isNaNF64UI(ui) (UINT64_C(0xFFE0000000000000) \
-                       < (uint64_t)((uint_fast64_t)ui << 1))
-#define signF64UI(a)   ((bool)((uint64_t) a >> 63))
-#define expF64UI(a)    ((int_fast16_t)(a >> 52) & 0x7FF)
-#define fracF64UI(a)   (a & UINT64_C(0x000FFFFFFFFFFFFF))
-
-union ui64_f64 { uint64_t ui; uint64_t f; };
 
 uint_fast16_t float64_classify(uint64_t a, float_status *status)
 {
