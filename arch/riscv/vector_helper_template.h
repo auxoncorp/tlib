@@ -1538,8 +1538,8 @@ void glue(glue(helper_, NAME), POSTFIX)(CPUState *env, uint32_t vd, uint32_t vs2
 #define OP_GT(A, B) ((A) > (B))
 #define OP_SHR(A, B) ((A) >> ((B) & ((sizeof(A) << 3) - 1)))
 #define OP_SHL(A, B) ((A) << ((B) & ((sizeof(A) << 3) - 1)))
-#define LBITS(A, BITS) ((A) & ((1ull << (BITS)) - 1))
-#define HBITS(A, BITS) (((A) >> (BITS)) & ((1ull << (BITS)) - 1))
+#define LBITS(A, BITS) ((A) & (((typeof(A))1 << (BITS)) - 1))
+#define HBITS(A, BITS) (((A) >> (BITS)) & (((typeof(A))1 << (BITS)) - 1))
 
 // Karatsuba algorithm's approach for getting upper half of multiplication result
 // ab = a1*b1 * 2^N + (a0*b1 + a1*b0) * 2^(N/2) + a0*b0
