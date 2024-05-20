@@ -400,6 +400,7 @@ static inline void set_default_mstatus()
     } else {
         env->mstatus = 0;
     }
+    env->mstatus = set_field(env->mstatus, MSTATUS_MPP, PRV_M);
 }
 
 static inline int supported_fpu_extensions_count(CPUState *env)
