@@ -606,6 +606,18 @@ inline void csr_write_helper(CPUState *env, target_ulong val_to_write, target_ul
     case CSR_VCSR:
         env->vcsr = val_to_write;
         break;
+    case CSR_MENVCFG:
+        env->menvcfg = val_to_write;
+        break;
+    case CSR_MENVCFGH:
+        env->menvcfgh = val_to_write;
+        break;
+    case CSR_MSECCFG:
+        env->mseccfg = val_to_write;
+        break;
+    case CSR_MSECCFGH:
+        env->mseccfgh = val_to_write;
+        break;
     default:
         warn_nonexistent_csr_write(csrno, val_to_write);
         helper_raise_illegal_instruction(env);
@@ -690,6 +702,7 @@ static inline target_ulong csr_read_helper(CPUState *env, target_ulong csrno)
     case CSR_CYCLE:
     case CSR_MCYCLE:
         return get_mcycles_current(env);
+    case CSR_INSTRETH:
     case CSR_MINSTRETH:
 #if defined(TARGET_RISCV32)
         return get_minstret_current(env) >> 32;
@@ -824,6 +837,20 @@ static inline target_ulong csr_read_helper(CPUState *env, target_ulong csrno)
         return env->mintstatus & SINTSTATUS_MASK;
     case CSR_MINTSTATUS:
         return env->mintstatus;
+    case CSR_MENVCFG:
+        return env->menvcfg;
+    case CSR_MENVCFGH:
+        return env->menvcfgh;
+    case CSR_MSECCFG:
+        return env->mseccfg;
+    case CSR_MSECCFGH:
+        return env->mseccfgh;
+    case CSR_TSELECT:
+        return 0u;
+    case CSR_TDATA1:
+        return 0u;
+    case CSR_TDATA2:
+        return 0u;
     default:
         /* used by e.g. MTIME read */
         warn_nonexistent_csr_read(csrno);

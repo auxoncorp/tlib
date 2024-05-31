@@ -56,6 +56,8 @@
 #define CSR_MTVEC                         0x305
 #define CSR_MCOUNTEREN                    0x306
 #define CSR_MTVT                          0x307 /* unratified as of 2024-06; smclic extension */
+#define CSR_MENVCFG                       0x30a
+#define CSR_MENVCFGH                      0x31a
 #define CSR_MCOUNTINHIBIT                 0x320 /* since: priv-1.11 */
 #define CSR_MUCOUNTEREN                   0x320 /* until: priv-1.10 */
 #define CSR_MSCOUNTEREN                   0x321
@@ -104,6 +106,8 @@
 #define CSR_PMPADDR0                      0x3b0
 /* CSR_PMPADDR1, CSR_PMPADDR2, CSR_PMPADDR3  ...  CSR_PMPADDR_LAST - 1 */
 #define CSR_PMPADDR_LAST                  (CSR_PMPADDR0 + (MAX_RISCV_PMPS - 1))
+#define CSR_MSECCFG                       0x747
+#define CSR_MSECCFGH                      0x757
 #define CSR_TSELECT                       0x7a0
 #define CSR_TDATA1                        0x7a1
 #define CSR_TDATA2                        0x7a2
