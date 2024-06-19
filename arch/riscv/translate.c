@@ -16,6 +16,7 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
+#include "bit_helper.h"
 #include "cpu.h"
 
 #include "instmap.h"
@@ -78,19 +79,19 @@ static inline void kill_unknown(DisasContext *dc, int excp);
 #endif
 
 // RISC-V User ISA, Release 2.2, section 1.2 Instruction Length Encoding
-static int decode_instruction_length(uint64_t opcode)
+static int decode_instruction_length(uint16_t opcode_first_word)
 {
     int instruction_length = 0;
-    if ((opcode & 0b11) != 0b11) {
+    if ((opcode_first_word & 0b11) != 0b11) {
         instruction_length = 2;
-    } else if ((opcode & 0b11100) != 0b11100) {
+    } else if ((opcode_first_word & 0b11100) != 0b11100) {
         instruction_length = 4;
-    } else if ((opcode & 0b111111) == 0b011111) {
+    } else if ((opcode_first_word & 0b111111) == 0b011111) {
         instruction_length = 6;
-    } else if ((opcode & 0b1111111) == 0b0111111) {
+    } else if ((opcode_first_word & 0b1111111) == 0b0111111) {
         instruction_length = 8;
-    } else if (extract32(opcode, 12, 3) != 0b111) {
-        instruction_length = 10 + 2 * extract32(opcode, 12, 3);
+    } else if (extract16(opcode_first_word, 12, 3) != 0b111) {
+        instruction_length = 10 + 2 * extract16(opcode_first_word, 12, 3);
     } else {
         // Reserved for >=192 bits, this function returns 0 in that case.
     }
@@ -5558,9 +5559,37 @@ static void decode_RV32_64G(CPUState *env, DisasContext *dc)
     }
 }
 
+static void log_unhandled_instruction_length(DisasContext *dc, int instruction_length)
+{
+    tlib_printf(LOG_LEVEL_ERROR, "Unsupported instruction length: %d bits. PC: 0x%llx, opcode: 0x%0*llx", 
+            8 * instruction_length , dc->base.pc,  /* padding */ 2 * instruction_length, format_opcode(dc->opcode, instruction_length));
+}
+
 static int disas_insn(CPUState *env, DisasContext *dc)
 {
-    dc->opcode = ldq_code(dc->base.pc);
+    uint16_t first_word_of_opcode = lduw_code(dc->base.pc);
+    int instruction_length = decode_instruction_length(first_word_of_opcode);
+    int is_compressed = instruction_length == 2;
+
+    switch(instruction_length) {
+        case 2:
+            dc->opcode = first_word_of_opcode;
+            break;
+        case 4:
+            dc->opcode = ldl_code(dc->base.pc);
+            break;
+        case 6:
+        case 8: 
+            dc->opcode = ldq_code(dc->base.pc);
+            break;
+        default:
+            log_unhandled_instruction_length(dc, instruction_length);
+            // Default to 32-bit if encountered an instruction of unsupported length.
+            // Allow for an exception to be raised while decoding.
+            instruction_length = 4;
+            break;
+    }
+
     /* handle custom instructions */
     int i;
     for (i = 0; i < env->custom_instructions_count; i++) {
@@ -5600,18 +5629,6 @@ static int disas_insn(CPUState *env, DisasContext *dc)
         }
     }
 
-    int instruction_length = decode_instruction_length(dc->opcode);
-    // Custom instructions with length up to 64 bits are handled above,
-    // but standard RISC-V instructions currently are no longer than 32 bits.
-    if (instruction_length == 0 || instruction_length > 4) {
-        tlib_printf(LOG_LEVEL_ERROR, "Unsupported instruction length: %d bits. PC: 0x%llx, opcode: 0x%0*llx",
-                    8 * instruction_length , dc->base.pc,  /* padding */ 2 * instruction_length, format_opcode(dc->opcode, instruction_length));
-    }
-    // Default to 32-bit if encountered an instruction of unsupported length.
-    // Allow for an exception to be raised while decoding.
-    instruction_length = instruction_length == 2 ? 2 : 4;
-
-    int is_compressed = instruction_length == 2;
     if (is_compressed && !ensure_extension(dc, RISCV_FEATURE_RVC)) {
         return 0;
     }

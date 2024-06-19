@@ -39,6 +39,13 @@ static inline uint64_t deposit64(uint64_t dst_val, uint8_t start, uint8_t length
 }
 
 /* Extracts 'length' bits of 'value' at 'start' bit. */
+static inline uint32_t extract16(uint16_t value, uint8_t start, uint8_t length)
+{
+    tlib_assert(start + length <= 16);
+    return (value >> start) & (UINT32_MAX >> (16 - length));
+}
+
+/* Extracts 'length' bits of 'value' at 'start' bit. */
 static inline uint32_t extract32(uint32_t value, uint8_t start, uint8_t length)
 {
     tlib_assert(start + length <= 32);
