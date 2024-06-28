@@ -28,7 +28,11 @@
 
 #define NB_MMU_MODES      4
 
-#define MAX_RISCV_PMPS    (16)
+#define MAX_RISCV_PMPS    (64)
+
+#if MAX_RISCV_PMPS != 16 && MAX_RISCV_PMPS != 64
+#error "Invalid maximum PMP region count. Supported values are 16 and 64"
+#endif
 
 // In MISA register the extensions are encoded on bits [25:0] (see: https://five-embeddev.com/riscv-isa-manual/latest/machine.html),
 // but because these additional features are not there RISCV_ADDITIONAL_FEATURE_OFFSET allows to show that they are unrelated to MISA.

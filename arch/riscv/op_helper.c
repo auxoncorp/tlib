@@ -139,26 +139,8 @@ target_ulong priv_version_csr_filter(CPUState *env, target_ulong csrno)
         switch (csrno) {
         case CSR_SCOUNTEREN:
         case CSR_MCOUNTEREN:
-        case CSR_PMPCFG0:
-        case CSR_PMPCFG1:
-        case CSR_PMPCFG2:
-        case CSR_PMPCFG3:
-        case CSR_PMPADDR0:
-        case CSR_PMPADDR1:
-        case CSR_PMPADDR2:
-        case CSR_PMPADDR3:
-        case CSR_PMPADDR4:
-        case CSR_PMPADDR5:
-        case CSR_PMPADDR6:
-        case CSR_PMPADDR7:
-        case CSR_PMPADDR8:
-        case CSR_PMPADDR9:
-        case CSR_PMPADDR10:
-        case CSR_PMPADDR11:
-        case CSR_PMPADDR12:
-        case CSR_PMPADDR13:
-        case CSR_PMPADDR14:
-        case CSR_PMPADDR15:
+        case CSR_PMPCFG0 ... CSR_PMPCFG_LAST:
+        case CSR_PMPADDR0 ... CSR_PMPADDR_LAST:
             return CSR_UNHANDLED;
         }
     }
@@ -580,28 +562,10 @@ inline void csr_write_helper(CPUState *env, target_ulong val_to_write, target_ul
         env->minstret_snapshot = cpu_riscv_read_instret(env);
 #endif
         break;
-    case CSR_PMPCFG0:
-    case CSR_PMPCFG1:
-    case CSR_PMPCFG2:
-    case CSR_PMPCFG3:
+    case CSR_PMPCFG0 ... CSR_PMPCFG_LAST:
         pmpcfg_csr_write(env, csrno - CSR_PMPCFG0, val_to_write);
         break;
-    case CSR_PMPADDR0:
-    case CSR_PMPADDR1:
-    case CSR_PMPADDR2:
-    case CSR_PMPADDR3:
-    case CSR_PMPADDR4:
-    case CSR_PMPADDR5:
-    case CSR_PMPADDR6:
-    case CSR_PMPADDR7:
-    case CSR_PMPADDR8:
-    case CSR_PMPADDR9:
-    case CSR_PMPADDR10:
-    case CSR_PMPADDR11:
-    case CSR_PMPADDR12:
-    case CSR_PMPADDR13:
-    case CSR_PMPADDR14:
-    case CSR_PMPADDR15:
+    case CSR_PMPADDR0 ... CSR_PMPADDR_LAST:
         pmpaddr_csr_write(env, csrno - CSR_PMPADDR0, val_to_write);
         break;
     case CSR_VSTART:
@@ -813,27 +777,9 @@ static inline target_ulong csr_read_helper(CPUState *env, target_ulong csrno)
     case CSR_MIDELEG:
         /* MIDELEG is hardwired to zero in CLIC mode */
         return (get_field(env->mtvec, MTVEC_MODE) == MTVEC_MODE_CLIC) ? 0 : env->mideleg;
-    case CSR_PMPCFG0:
-    case CSR_PMPCFG1:
-    case CSR_PMPCFG2:
-    case CSR_PMPCFG3:
+    case CSR_PMPCFG0 ... CSR_PMPCFG_LAST:
         return pmpcfg_csr_read(env, csrno - CSR_PMPCFG0);
-    case CSR_PMPADDR0:
-    case CSR_PMPADDR1:
-    case CSR_PMPADDR2:
-    case CSR_PMPADDR3:
-    case CSR_PMPADDR4:
-    case CSR_PMPADDR5:
-    case CSR_PMPADDR6:
-    case CSR_PMPADDR7:
-    case CSR_PMPADDR8:
-    case CSR_PMPADDR9:
-    case CSR_PMPADDR10:
-    case CSR_PMPADDR11:
-    case CSR_PMPADDR12:
-    case CSR_PMPADDR13:
-    case CSR_PMPADDR14:
-    case CSR_PMPADDR15:
+    case CSR_PMPADDR0 ... CSR_PMPADDR_LAST:
         return pmpaddr_csr_read(env, csrno - CSR_PMPADDR0);
     case CSR_VSTART:
         return env->vstart;

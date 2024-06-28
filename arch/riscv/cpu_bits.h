@@ -99,25 +99,11 @@
 #define CSR_MSCRATCHCSW                   0x348 /* unratified as of 2024-06; smclic extension */
 #define CSR_MSCRATCHCSWL                  0x349 /* unratified as of 2024-06; smclic extension */
 #define CSR_PMPCFG0                       0x3a0
-#define CSR_PMPCFG1                       0x3a1
-#define CSR_PMPCFG2                       0x3a2
-#define CSR_PMPCFG3                       0x3a3
+/* CSR_PMPCFG1, CSR_PMPCFG2, CSR_PMPCFG3 ... CSR_PMPCFG_LAST - 1 */
+#define CSR_PMPCFG_LAST                   (CSR_PMPCFG0 + ((MAX_RISCV_PMPS / 4) - 1))
 #define CSR_PMPADDR0                      0x3b0
-#define CSR_PMPADDR1                      0x3b1
-#define CSR_PMPADDR2                      0x3b2
-#define CSR_PMPADDR3                      0x3b3
-#define CSR_PMPADDR4                      0x3b4
-#define CSR_PMPADDR5                      0x3b5
-#define CSR_PMPADDR6                      0x3b6
-#define CSR_PMPADDR7                      0x3b7
-#define CSR_PMPADDR8                      0x3b8
-#define CSR_PMPADDR9                      0x3b9
-#define CSR_PMPADDR10                     0x3ba
-#define CSR_PMPADDR11                     0x3bb
-#define CSR_PMPADDR12                     0x3bc
-#define CSR_PMPADDR13                     0x3bd
-#define CSR_PMPADDR14                     0x3be
-#define CSR_PMPADDR15                     0x3bf
+/* CSR_PMPADDR1, CSR_PMPADDR2, CSR_PMPADDR3  ...  CSR_PMPADDR_LAST - 1 */
+#define CSR_PMPADDR_LAST                  (CSR_PMPADDR0 + (MAX_RISCV_PMPS - 1))
 #define CSR_TSELECT                       0x7a0
 #define CSR_TDATA1                        0x7a1
 #define CSR_TDATA2                        0x7a2
