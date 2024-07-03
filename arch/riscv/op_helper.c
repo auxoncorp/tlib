@@ -992,6 +992,10 @@ void riscv_set_mode(CPUState *env, target_ulong newpriv)
 
 target_ulong helper_sret(CPUState *env, target_ulong cpu_pc_deb)
 {
+    if (!riscv_has_ext(env, RISCV_FEATURE_RVS)) {
+        helper_raise_illegal_instruction(env);
+    }
+
     if (env->priv < PRV_S) {
         tlib_printf(LOG_LEVEL_ERROR, "Trying to execute Sret from privilege level %u", env->priv);
         helper_raise_illegal_instruction(env);
