@@ -541,6 +541,8 @@ void tcg_pool_delete(TCGContext *s);
     __attribute__((aligned (32)))
 #endif
 
+#include "../include/disas_context_base.h"
+
 typedef struct tcg_t {
     TCGContext *ctx;
     uint16_t *gen_opc_buf;
@@ -556,6 +558,7 @@ typedef struct tcg_t {
     void *stw;
     void *stl;
     void *stq;
+    DisasContextBase* disas_context;
 } tcg_t;
 
 extern tcg_t *tcg;

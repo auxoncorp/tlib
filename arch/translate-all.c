@@ -191,6 +191,8 @@ static void cpu_gen_code_inner(CPUState *env, TranslationBlock *tb)
     dc->is_jmp = DISAS_NEXT;
     dc->pc = tb->pc;
     dc->guest_profile = env->guest_profiler_enabled;
+    dc->generate_block_exit_check = false;
+    tcg->disas_context = dc;
 
     gen_block_header(tb);
     setup_disas_context(dc, env);
@@ -211,6 +213,12 @@ static void cpu_gen_code_inner(CPUState *env, TranslationBlock *tb)
         if (!gen_intermediate_code(env, dc)) {
             do_break = 1;
         }
+
+        if (unlikely(dc->generate_block_exit_check)) {
+            dc->generate_block_exit_check = false;
+            gen_helper_try_exit_cpu_loop(cpu_env);
+        }
+
         if (tcg_check_temp_count()) {
             tlib_abortf("TCG temps leak detected at PC %08X", dc->pc);
         }
@@ -230,6 +238,8 @@ static void cpu_gen_code_inner(CPUState *env, TranslationBlock *tb)
     }
     tb->disas_flags = gen_intermediate_code_epilogue(env, dc);
     gen_block_footer(tb);
+
+    tcg->disas_context = NULL;
 }
 
 /* Encode VAL as a signed leb128 sequence at P.

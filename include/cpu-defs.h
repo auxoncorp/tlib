@@ -69,13 +69,7 @@ typedef uint64_t target_ulong __attribute__((aligned(TARGET_LONG_ALIGNMENT)));
 #error TARGET_LONG_SIZE undefined
 #endif
 
-typedef struct DisasContextBase {
-    struct TranslationBlock *tb;
-    target_ulong pc;
-    int mem_idx;
-    int is_jmp;
-    int guest_profile;
-} DisasContextBase;
+#include "disas_context_base.h"
 
 #define HOST_LONG_SIZE      (HOST_LONG_BITS / 8)
 

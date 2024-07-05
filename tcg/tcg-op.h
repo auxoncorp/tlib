@@ -32,6 +32,12 @@
 
 int gen_new_label(void);
 
+static inline void tcg_request_block_interrupt_check()
+{
+    tlib_assert(tcg->disas_context);
+    tcg->disas_context->generate_block_exit_check = true;
+}
+
 static inline void tcg_gen_op0(TCGOpcode opc)
 {
     *gen_opc_ptr++ = opc;
@@ -2712,6 +2718,7 @@ static inline void tcg_gen_qemu_ld64(TCGv_i64 ret, TCGv addr, int mem_index)
 
 static inline void tcg_gen_qemu_st8(TCGv arg, TCGv addr, int mem_index)
 {
+    tcg_request_block_interrupt_check();
 #if TARGET_LONG_BITS == 32
     tcg_gen_op3i_i32(INDEX_op_qemu_st8, arg, addr, mem_index);
 #else
@@ -2721,6 +2728,7 @@ static inline void tcg_gen_qemu_st8(TCGv arg, TCGv addr, int mem_index)
 
 static inline void tcg_gen_qemu_st16(TCGv arg, TCGv addr, int mem_index)
 {
+    tcg_request_block_interrupt_check();
 #if TARGET_LONG_BITS == 32
     tcg_gen_op3i_i32(INDEX_op_qemu_st16, arg, addr, mem_index);
 #else
@@ -2730,6 +2738,7 @@ static inline void tcg_gen_qemu_st16(TCGv arg, TCGv addr, int mem_index)
 
 static inline void tcg_gen_qemu_st32(TCGv arg, TCGv addr, int mem_index)
 {
+    tcg_request_block_interrupt_check();
 #if TARGET_LONG_BITS == 32
     tcg_gen_op3i_i32(INDEX_op_qemu_st32, arg, addr, mem_index);
 #else
@@ -2739,6 +2748,7 @@ static inline void tcg_gen_qemu_st32(TCGv arg, TCGv addr, int mem_index)
 
 static inline void tcg_gen_qemu_st64(TCGv_i64 arg, TCGv addr, int mem_index)
 {
+    tcg_request_block_interrupt_check();
 #if TARGET_LONG_BITS == 32
     tcg_gen_op4i_i32(INDEX_op_qemu_st64, TCGV_LOW(arg), TCGV_HIGH(arg), addr, mem_index);
 #else
@@ -2796,21 +2806,25 @@ static inline void tcg_gen_qemu_ld64(TCGv_i64 ret, TCGv addr, int mem_index)
 
 static inline void tcg_gen_qemu_st8(TCGv arg, TCGv addr, int mem_index)
 {
+    tcg_request_block_interrupt_check();
     tcg_gen_qemu_ldst_op(INDEX_op_qemu_st8, arg, addr, mem_index);
 }
 
 static inline void tcg_gen_qemu_st16(TCGv arg, TCGv addr, int mem_index)
 {
+    tcg_request_block_interrupt_check();
     tcg_gen_qemu_ldst_op(INDEX_op_qemu_st16, arg, addr, mem_index);
 }
 
 static inline void tcg_gen_qemu_st32(TCGv arg, TCGv addr, int mem_index)
 {
+    tcg_request_block_interrupt_check();
     tcg_gen_qemu_ldst_op(INDEX_op_qemu_st32, arg, addr, mem_index);
 }
 
 static inline void tcg_gen_qemu_st64(TCGv_i64 arg, TCGv addr, int mem_index)
 {
+    tcg_request_block_interrupt_check();
     tcg_gen_qemu_ldst_op_i64(INDEX_op_qemu_st64, arg, addr, mem_index);
 }
 
@@ -2951,6 +2965,7 @@ static inline void tcg_gen_qemu_ld_i32(TCGv_i32 val, TCGv addr, TCGArg idx, TCGM
 static inline void tcg_gen_qemu_st_i32(TCGv_i32 val, TCGv_i32 addr, TCGArg idx, TCGMemOp memop)
 {
     TCGv_i32 swap = -1;
+    tcg_request_block_interrupt_check();
     tcg_gen_req_mo(TCG_MO_LD_ST | TCG_MO_ST_ST);
     memop = tcg_canonicalize_memop(memop, 0, 1);
     if (!TCG_TARGET_HAS_MEMORY_BSWAP && (memop & MO_BSWAP)) {
@@ -3028,6 +3043,7 @@ static inline void tcg_gen_qemu_st_i64(TCGv_i64 val, TCGv addr, TCGArg idx, TCGM
 {
     TCGv_i64 swap = -1;
 
+    tcg_request_block_interrupt_check();
 #if TCG_TARGET_REG_BITS == 32
     if ((memop & MO_SIZE) < MO_64) {
         tcg_gen_qemu_st_i32(TCGV_LOW(val), addr, idx, memop);

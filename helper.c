@@ -100,6 +100,16 @@ void HELPER(block_finished_event)(target_ulong address, uint32_t executed_instru
     tlib_on_block_finished(address, executed_instructions);
 }
 
+void HELPER(try_exit_cpu_loop)(CPUState * env)
+{
+    extern void *global_retaddr;
+
+    if(unlikely(env->exception_index >= 0)) {
+        global_retaddr = GETPC();
+        interrupt_current_translation_block(env, env->exception_index);
+    }
+}
+
 void HELPER(abort)(void) {
     tlib_abort("aborted by gen_abort!");
 }

@@ -68,21 +68,23 @@ static void init_tcg()
 void tlib_try_interrupt_translation_block(void)
 {
     if (likely(cpu) && unlikely(cpu->tb_interrupt_request_from_callback)) {
-        int excp = -1;
-        switch(cpu->tb_interrupt_request_from_callback)
+        int request_type = cpu->tb_interrupt_request_from_callback;
+        cpu->tb_interrupt_request_from_callback = TB_INTERRUPT_NONE;
+
+        switch(request_type)
         {
             case TB_INTERRUPT_INCLUDE_LAST_INSTRUCTION:
-                excp = MMU_EXTERNAL_FAULT;
+                // If last instruction is to be included then we only store the exception and it will
+                // actually be triggered at the end of the currently executing instruction
+                cpu->exception_index = MMU_EXTERNAL_FAULT;
                 break;
             case TB_INTERRUPT_EXCLUDE_LAST_INSTRUCTION:
-                excp = EXCP_WATCHPOINT;
+                interrupt_current_translation_block(cpu, EXCP_WATCHPOINT);
                 break;
             default:
                 tlib_abort("Unhandled translation block interrupt condition. Aborting!");
                 break;
         }
-        cpu->tb_interrupt_request_from_callback = TB_INTERRUPT_NONE;
-        interrupt_current_translation_block(cpu, excp);
     }
 }
 
