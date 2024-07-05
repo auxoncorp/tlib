@@ -1152,17 +1152,17 @@ void interrupt_current_translation_block(CPUState *env, int exception_type)
         return;
     }
 
-    cpu_get_tb_cpu_state(cpu, &pc, &cs_base, &cpu_flags);
-    tb_phys_invalidate(cpu->current_tb, -1);
-    tb = tb_gen_code(cpu, pc, cs_base, cpu_flags, 0);
+    cpu_get_tb_cpu_state(env, &pc, &cs_base, &cpu_flags);
+    tb_phys_invalidate(env->current_tb, -1);
+    tb = tb_gen_code(env, pc, cs_base, cpu_flags, 0);
     tb_phys_hash_insert(tb);
 
-    if (cpu->block_finished_hook_present) {
+    if (env->block_finished_hook_present) {
         tlib_on_block_finished(pc, executed_instructions);
     }
 
-    cpu->exception_index = exception_type;
-    longjmp(cpu->jmp_env, 1);
+    env->exception_index = exception_type;
+    cpu_loop_exit_without_hook(env);
 }
 
 /* Remove a specific breakpoint.  */
