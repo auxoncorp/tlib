@@ -74,6 +74,31 @@ static int validate_vm(CPUState *env, target_ulong vm)
     return (env->privilege_architecture >= RISCV_PRIV1_10) ? valid_vm_1_10[vm & 0xf] : valid_vm_1_09[vm & 0xf];
 }
 
+static target_ulong validate_mpp_setting(CPUState *env, target_ulong value_to_write)
+{
+    int mpp_to_write = get_field(value_to_write, MSTATUS_MPP);
+    bool allowed;
+    switch(mpp_to_write)
+    {
+        case PRV_U:
+            allowed = riscv_has_ext(env, RISCV_FEATURE_RVU);
+            break;
+        case PRV_S:
+            allowed = riscv_has_ext(env, RISCV_FEATURE_RVS);
+            break;
+        case PRV_M:
+            allowed = true;
+            break;
+        default:
+            allowed = false;
+    }
+
+    if(!allowed) {
+        value_to_write = (value_to_write & ~MSTATUS_MPP);
+    }
+    return value_to_write;
+}
+
 static inline uint64_t cpu_riscv_read_instret(CPUState *env)
 {
     uint64_t retval = env->instructions_count_total_value;
@@ -321,6 +346,7 @@ inline void csr_write_helper(CPUState *env, target_ulong val_to_write, target_ul
 #ifdef TARGET_RISCV64
         mask |= MSTATUS_UXL | MSTATUS_SXL;
 #endif
+        val_to_write = validate_mpp_setting(env, val_to_write);
         mstatus = (mstatus & ~mask) | (val_to_write & mask);
 
         int dirty = (mstatus & MSTATUS_FS) == MSTATUS_FS;
