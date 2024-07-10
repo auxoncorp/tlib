@@ -780,7 +780,6 @@ static inline target_ulong csr_read_helper(CPUState *env, target_ulong csrno)
     case CSR_MTVAL:
         return env->mtval;
     case CSR_MISA:
-        env->misa |= 0x00040000; // 'S'
         return env->misa;
     case CSR_MARCHID:
         return 0;                /* as spike does */
