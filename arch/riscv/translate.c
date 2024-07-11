@@ -1472,6 +1472,12 @@ static void gen_fp_load(DisasContext *dc, uint32_t opc, int rd, int rs1, target_
         kill_unknown(dc, RISCV_EXCP_ILLEGAL_INST);
         break;
     }
+
+    // mark MSTATUS.FS as dirty
+    tcg_gen_ld_tl(t0, cpu_env, offsetof(CPUState, mstatus));
+    tcg_gen_ori_tl(t0, t0, 3 << 13);
+    tcg_gen_st_tl(t0, cpu_env, offsetof(CPUState, mstatus));
+
     tcg_temp_free(destination);
     gen_set_label(done);
     tcg_temp_free(t0);
