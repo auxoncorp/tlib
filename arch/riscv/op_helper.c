@@ -99,6 +99,58 @@ static target_ulong validate_mpp_setting(CPUState *env, target_ulong value_to_wr
     return value_to_write;
 }
 
+static inline target_ulong get_counter_enabled_mask(CPUState *env)
+{
+    if (env->priv == PRV_H) {
+        tlib_abort("H-mode is currently not supported");
+        return 0;
+    }
+
+    if(env->privilege_architecture >= RISCV_PRIV1_10) {
+        switch (env->priv)
+        {
+            case PRV_M:
+                return -1U; // All counters are available in M-mode
+            case PRV_S:
+                return env->mcounteren;
+            case PRV_U:
+                return riscv_has_ext(env, RISCV_FEATURE_RVS) ? env->scounteren : env->mcounteren;
+            default:
+                tlib_abortf("Invalid privilege level: %d", env->priv);
+                return 0;
+        }
+    } else {
+        switch (env->priv)
+        {
+            case PRV_M:
+                return -1U; // All counters are available in M-mode
+            case PRV_S:
+                return env->mscounteren;
+            case PRV_U:
+                return env->mucounteren;
+            default:
+                tlib_abortf("Invalid privilege level: %d", env->priv);
+                return 0;
+        }
+    }
+}
+
+static inline bool is_counter_csr(target_ulong csrno)
+{
+    switch (csrno)
+    {
+        case CSR_CYCLE ... CSR_HPMCOUNTER31:
+        case CSR_MCYCLE ... CSR_MHPMCOUNTER31:
+#if defined(TARGET_RISCV32)
+        case CSR_CYCLEH ... CSR_HPMCOUNTER31H:
+        case CSR_MCYCLEH ... CSR_MHPMCOUNTER31H:
+#endif
+            return true;
+    default:
+            return false;
+    }
+}
+
 static inline uint64_t cpu_riscv_read_instret(CPUState *env)
 {
     uint64_t retval = env->instructions_count_total_value;
@@ -631,34 +683,20 @@ inline void csr_write_helper(CPUState *env, target_ulong val_to_write, target_ul
  */
 static inline target_ulong csr_read_helper(CPUState *env, target_ulong csrno)
 {
-    target_ulong ctr_en = env->priv == PRV_U ? env->mucounteren : env->priv == PRV_S ? env->mscounteren : -1U;
-    target_ulong ctr_ok = (ctr_en >> (csrno & 31)) & 1;
+    csrno = priv_version_csr_filter(env, csrno);
 
-    if (ctr_ok) {
-        if (csrno >= CSR_HPMCOUNTER3 && csrno <= CSR_HPMCOUNTER31) {
-            return 0;
+    if (is_counter_csr(csrno)) {
+        target_ulong ctr_ok = (get_counter_enabled_mask(env) >> (csrno & 31)) & 1;
+        if (!ctr_ok) {
+            helper_raise_illegal_instruction(env);
         }
-#if defined(TARGET_RISCV32)
-        if (csrno >= CSR_HPMCOUNTER3H && csrno <= CSR_HPMCOUNTER31H) {
-            return 0;
-        }
-#endif
     }
+
     if (env->privilege_architecture >= RISCV_PRIV1_10) {
-        if (csrno >= CSR_MHPMCOUNTER3 && csrno <= CSR_MHPMCOUNTER31) {
-            return 0;
-        }
-#if defined(TARGET_RISCV32)
-        if (csrno >= CSR_MHPMCOUNTER3H && csrno <= CSR_MHPMCOUNTER31H) {
-            return 0;
-        }
-#endif
         if (csrno >= CSR_MHPMEVENT3 && csrno <= CSR_MHPMEVENT31) {
             return 0;
         }
     }
-
-    csrno = priv_version_csr_filter(env, csrno);
 
     // testing for non-standard CSRs here (i.e., before the switch)
     // allows us to override existing CSRs with our custom implementation;
@@ -712,6 +750,15 @@ static inline target_ulong csr_read_helper(CPUState *env, target_ulong csrno)
     case CSR_MCYCLEH:
 #if defined(TARGET_RISCV32)
         return get_mcycles_current(env) >> 32;
+#endif
+        break;
+    case CSR_HPMCOUNTER3 ... CSR_HPMCOUNTER31:
+    case CSR_MHPMCOUNTER3 ... CSR_MHPMCOUNTER31:
+        return 0; /* Stubbed implementation */
+    case CSR_HPMCOUNTER3H ... CSR_HPMCOUNTER31H:
+    case CSR_MHPMCOUNTER3H ... CSR_MHPMCOUNTER31H:
+#if defined(TARGET_RISCV32)
+        return 0; /* Stubbed implementation */
 #endif
         break;
     case CSR_MCOUNTINHIBIT:
