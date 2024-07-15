@@ -218,6 +218,7 @@ target_ulong priv_version_csr_filter(CPUState *env, target_ulong csrno)
         case CSR_MCOUNTEREN:
         case CSR_PMPCFG0 ... CSR_PMPCFG_LAST:
         case CSR_PMPADDR0 ... CSR_PMPADDR_LAST:
+        case CSR_MHPMEVENT3 ... CSR_MHPMEVENT31:
             return CSR_UNHANDLED;
         }
     }
@@ -471,6 +472,8 @@ inline void csr_write_helper(CPUState *env, target_ulong val_to_write, target_ul
     case CSR_MSCOUNTEREN:
         env->mscounteren = val_to_write;
         break;
+    case CSR_MHPMEVENT3 ... CSR_MHPMEVENT31:
+        break; /* Stubbed implementation */
     case CSR_SSTATUS: {
         target_ulong s = env->mstatus;
         target_ulong mask = SSTATUS_SIE | SSTATUS_SPIE | SSTATUS_UIE | SSTATUS_UPIE | SSTATUS_SPP | SSTATUS_FS | SSTATUS_XS |
@@ -692,12 +695,6 @@ static inline target_ulong csr_read_helper(CPUState *env, target_ulong csrno)
         }
     }
 
-    if (env->privilege_architecture >= RISCV_PRIV1_10) {
-        if (csrno >= CSR_MHPMEVENT3 && csrno <= CSR_MHPMEVENT31) {
-            return 0;
-        }
-    }
-
     // testing for non-standard CSRs here (i.e., before the switch)
     // allows us to override existing CSRs with our custom implementation;
     // this is necessary for RI5CY core
@@ -774,6 +771,8 @@ static inline target_ulong csr_read_helper(CPUState *env, target_ulong csrno)
         break;
     case CSR_MSCOUNTEREN:
         return env->mscounteren;
+    case CSR_MHPMEVENT3 ... CSR_MHPMEVENT31:
+        return 0; /* Stubbed implementation */
     case CSR_SSTATUS: {
         target_ulong mask = SSTATUS_SIE | SSTATUS_SPIE | SSTATUS_UIE | SSTATUS_UPIE | SSTATUS_SPP | SSTATUS_FS | SSTATUS_XS |
                             SSTATUS_SUM |  SSTATUS_SD;
