@@ -1952,13 +1952,25 @@ static void handle_sys(DisasContext *s, uint32_t insn, bool isread,
     ri = ttable_lookup_value_eq(s->cp_regs, &key);
 
     if (!ri) {
-        /* Unknown register; this might be a guest error or a QEMU
-         * unimplemented feature.
-         */
-        tlib_printf(LOG_LEVEL_ERROR, "%s access to unsupported AArch64 "
-                      "system register op0:%d op1:%d crn:%d crm:%d op2:%d",
-                      isread ? "read" : "write", op0, op1, crn, crm, op2);
-        gen_sysreg_undef(s, isread, op0, op1, op2, crn, crm, rt);
+        if (op0 == 3 && op1 == 0 && crn == 0 && crm >= 2 && crm <= 7 && op2 <=7) {
+            // Unknown ID register should be treated as RAZ. See a note in ARMv8-A manual's
+            // D22.3.1 chapter: "Instructions for accessing non-debug System registers".
+            tlib_printf(LOG_LEVEL_WARNING, "%s access to unsupported AArch64 "
+                          "ID register op0:%d op1:%d crn:%d crm:%d op2:%d, %s",
+                          isread ? "read" : "write", op0, op1, crn, crm, op2,
+                          isread ? "returning 0" : "write ignored");
+            if (isread) {
+                tcg_rt = cpu_reg(s, rt);
+                tcg_gen_movi_i64(tcg_rt, 0);
+            }
+        } else {
+            // Unknown register; this might be a guest error or an unimplemented feature.
+            tlib_printf(LOG_LEVEL_ERROR, "%s access to unsupported AArch64 "
+                          "system register op0:%d op1:%d crn:%d crm:%d op2:%d, "
+                          "raising UNDEF exception",
+                          isread ? "read" : "write", op0, op1, crn, crm, op2);
+            gen_sysreg_undef(s, isread, op0, op1, op2, crn, crm, rt);
+        }
         return;
     }
 
