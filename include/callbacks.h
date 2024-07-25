@@ -4,6 +4,14 @@
 #include <stdlib.h>
 #include "infrastructure.h"
 
+#define DEFAULT_VOID_HANDLER0(NAME) \
+  NAME(void) __attribute__((weak));\
+\
+  NAME(void)\
+{\
+\
+}
+
 #define DEFAULT_VOID_HANDLER1(NAME, PARAM1) \
   NAME(PARAM1) __attribute__((weak));\
 \

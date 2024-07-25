@@ -530,6 +530,8 @@ void cpu_reset_v8_a64(CPUState *env)
     pstate |= PSTATE_Z;
 
     pstate_write(env, pstate);
+
+    env->stub_smc_calls = false;
 }
 
 void cpu_reset_v8_a32(CPUState *env)
@@ -555,6 +557,8 @@ void cpu_reset_v8_a32(CPUState *env)
      * field as main ID register, and we implement no event counters.
      */
     env->cp15.c9_pmcr = (env->cp15.c0_cpuid & 0xff000000);
+
+    env->stub_smc_calls = false;
 }
 
 void do_interrupt_a64(CPUState *env)

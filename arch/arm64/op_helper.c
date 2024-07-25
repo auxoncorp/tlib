@@ -835,6 +835,11 @@ void HELPER(pre_hvc)(CPUARMState *env)
     }
 }
 
+void HELPER(stub_smc)()
+{
+    tlib_handle_smc_call();
+}
+
 void HELPER(pre_smc)(CPUARMState *env, uint32_t syndrome)
 {
     int cur_el = arm_current_el(env);

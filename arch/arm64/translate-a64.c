@@ -2225,6 +2225,11 @@ static void disas_exc(DisasContext *s, uint32_t insn)
                                   syn_aa64_hvc(imm16), 2);
             break;
         case 3:                                                     /* SMC */
+            if(env->stub_smc_calls)
+            {
+                gen_helper_stub_smc();
+                break;
+            }
             if (s->current_el == 0) {
                 unallocated_encoding(s);
                 break;
