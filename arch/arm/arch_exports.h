@@ -15,6 +15,9 @@ void tlib_set_number_of_mpu_regions(uint32_t value);
 uint32_t tlib_get_number_of_mpu_regions();
 void tlib_register_tcm_region(uint32_t address, uint64_t size, uint64_t index);
 
+void tlib_update_pmu_counters(int event_id, uint32_t amount);
+void tlib_pmu_set_debug(uint32_t debug);
+
 #ifdef TARGET_PROTO_ARM_M
 void tlib_set_interrupt_vector_base(uint32_t address);
 uint32_t tlib_get_interrupt_vector_base(void);
