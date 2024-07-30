@@ -178,6 +178,18 @@ void tlib_pmu_set_debug(uint32_t debug)
 
 EXC_VOID_1(tlib_pmu_set_debug, uint32_t, debug)
 
+uint32_t tlib_get_exception_vector_address(void)
+{
+    return cpu->cp15.c12_vbar;
+}
+EXC_INT_0(uint32_t, tlib_get_exception_vector_address)
+
+void tlib_set_exception_vector_address(uint32_t address)
+{
+    cpu->cp15.c12_vbar = address;
+}
+EXC_VOID_1(tlib_set_exception_vector_address, uint32_t, address)
+
 #ifdef TARGET_PROTO_ARM_M
 
 void tlib_set_interrupt_vector_base(uint32_t address)

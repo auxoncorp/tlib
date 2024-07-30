@@ -1173,10 +1173,13 @@ case_EXCP_PREFETCH_ABORT:
         /* High vectors are not affected by VBAR */
         addr += 0xffff0000;
     } else {
-        /* CPUs w/ Security Extensions allow for relocation of the
-        * vector table. c12_vbar is initialized to zero so the
-        * the following maintains compat w/ targets that don't have
-        * Security Extensions.
+        /* CPUs w/ Security Extensions allow for relocation of the vector table.
+        * c12_vbar is initialized to zero so the following maintains compatible
+        * with targets that don't have Security Extensions.
+        *
+        * Even though VBAR can only be set by software for such CPUs, accessors
+        * are exported for all pre-v8 A-profile and R-profile CPUs. Therefore
+        * it can be set for all such CPUs.
         */
         addr += env->cp15.c12_vbar;
     }
