@@ -1138,7 +1138,10 @@ target_ulong helper_mret(CPUState *env, target_ulong cpu_pc_deb)
         set_field(mstatus, env->privilege_architecture >= RISCV_PRIV1_10 ? MSTATUS_MIE : 1 << prev_priv,
             get_field(mstatus, MSTATUS_MPIE));
     mstatus = set_field(mstatus, MSTATUS_MPIE, 1);
-    mstatus = set_field(mstatus, MSTATUS_MPP, PRV_U);
+
+    int lowest_priv = riscv_has_ext(env, RISCV_FEATURE_RVU) ? PRV_U : PRV_M;
+
+    mstatus = set_field(mstatus, MSTATUS_MPP, lowest_priv);
     if (env->privilege_architecture >= RISCV_PRIV1_12 && prev_priv != PRV_M) {
         mstatus = set_field(mstatus, MSTATUS_MPRV, 0);
     }
@@ -1146,7 +1149,7 @@ target_ulong helper_mret(CPUState *env, target_ulong cpu_pc_deb)
     csr_write_helper(env, mstatus, CSR_MSTATUS);
 
     target_ulong mcause = env->mcause;
-    mcause = set_field(mcause, MCAUSE_MPP, PRV_U);
+    mcause = set_field(mcause, MCAUSE_MPP, lowest_priv);
     mcause = set_field(mcause, MCAUSE_MPIE, 1);
     // MCAUSE_MPIL not affected by mret
     csr_write_helper(env, mcause, CSR_MCAUSE);
