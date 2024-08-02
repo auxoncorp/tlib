@@ -510,6 +510,16 @@ int cpu_handle_mmu_fault(CPUState *env, target_ulong addr, int access_type, int 
             }
         }
     }
+
+do_mapping:
+    pte = pte & env->a20_mask;
+
+    /* Even if 4MB pages, we map only one 4KB page in the cache to
+       avoid filling it too fast */
+    page_offset = (addr & TARGET_PAGE_MASK) & (page_size - 1);
+    paddr = (pte & TARGET_PAGE_MASK) + page_offset;
+    vaddr = virt_addr + page_offset;
+    goto set_page;
 do_external_mmu_mapping:
     if(get_external_mmu_phys_addr(env, addr, access_type, &paddr, &prot, no_page_fault) == TRANSLATE_FAIL)
     {
@@ -520,15 +530,6 @@ do_external_mmu_mapping:
     page_size = TARGET_PAGE_SIZE;
     vaddr = addr & TARGET_PAGE_MASK;
     paddr = paddr & TARGET_PAGE_MASK;
-    goto set_page;
-do_mapping:
-    pte = pte & env->a20_mask;
-
-    /* Even if 4MB pages, we map only one 4KB page in the cache to
-       avoid filling it too fast */
-    page_offset = (addr & TARGET_PAGE_MASK) & (page_size - 1);
-    paddr = (pte & TARGET_PAGE_MASK) + page_offset;
-    vaddr = virt_addr + page_offset;
 set_page:
     tlb_set_page(env, vaddr, paddr, prot, mmu_idx, page_size);
     return TRANSLATE_SUCCESS;
