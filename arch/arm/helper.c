@@ -1741,7 +1741,8 @@ static inline bool pmsav8_get_region(CPUState *env, uint32_t address, int *regio
 #define PMSA_AP_PRIVONLY(ap) (( ap & 0b01 ) == 0)
 #define PMSA_AP_READONLY(ap) (( ap & 0b10 ) != 0)
 
-static inline int pmsav8_get_phys_addr(CPUState *env, uint32_t address, int access_type, int is_user, uint32_t *phys_ptr, int *prot)
+static inline int pmsav8_get_phys_addr(CPUState *env, uint32_t address, int access_type, int is_user, uint32_t *phys_ptr, 
+        int *prot, target_ulong *page_size)
 {
     bool hit;
     int resolved_region;
@@ -1780,6 +1781,18 @@ static inline int pmsav8_get_phys_addr(CPUState *env, uint32_t address, int acce
             *prot |= PAGE_EXEC;
         }
 
+        /* Check that the hit region fully covers the tlb page
+         */
+        uint32_t region_start = env->pmsav8.rbar[resolved_region] & ~0x1f;
+        uint32_t region_end = env->pmsav8.rlar[resolved_region] | 0x1f;
+        if ((address & TARGET_PAGE_MASK) == (region_start & TARGET_PAGE_MASK)) {
+            // Region starts mid page
+            *page_size -= (region_start & ~TARGET_PAGE_MASK);
+        }
+        if ((address & TARGET_PAGE_MASK) == (region_end & TARGET_PAGE_MASK)) {
+            // Region ends mid page
+            *page_size -= TARGET_PAGE_SIZE - (region_end & ~TARGET_PAGE_MASK);
+        }
     } else {
         /* No region hit, use background region if:
          * - MPU disabled: for all accesses
@@ -1824,7 +1837,7 @@ inline int get_phys_addr(CPUState *env, uint32_t address, int access_type, int i
             *prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
             return TRANSLATE_SUCCESS;
         }
-        return pmsav8_get_phys_addr(env, address, access_type, is_user, phys_ptr, prot);
+        return pmsav8_get_phys_addr(env, address, access_type, is_user, phys_ptr, prot, page_size);
     }
 #endif
 
@@ -2821,6 +2834,7 @@ uint32_t HELPER(v8m_tt)(CPUState *env, uint32_t addr, uint32_t op)
     int prot;
     bool priv_access;
     uint32_t phys_ptr; /* Not used, but needed for get_phys_addr_mpu */
+    target_ulong page_size; /* Same as above */
     bool a,t;
     int resolved_region;
     bool multiple_regions;
@@ -2875,7 +2889,7 @@ uint32_t HELPER(v8m_tt)(CPUState *env, uint32_t addr, uint32_t op)
     addr_info.flags.mpu_region = resolved_region;
     addr_info.flags.mpu_region_valid = true;
 
-    pmsav8_get_phys_addr(env, addr, PAGE_READ, !priv_access, &phys_ptr, &prot);
+    pmsav8_get_phys_addr(env, addr, PAGE_READ, !priv_access, &phys_ptr, &prot, &page_size);
     addr_info.flags.read_ok = (prot & (1 << PAGE_READ)) != 0;
     addr_info.flags.readwrite_ok = addr_info.flags.read_ok && (prot & (1 << PAGE_WRITE)) != 0;
 
