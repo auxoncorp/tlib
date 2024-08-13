@@ -45,9 +45,9 @@ typedef enum {
     TCG_REG_R10,
     TCG_REG_R11,
     TCG_REG_R12,
-    TCG_REG_R13,
-    TCG_REG_R14,
-    TCG_REG_PC,
+    TCG_REG_R13, // SP
+    TCG_REG_R14, // LR
+    TCG_REG_PC,  // PC
 } TCGReg;
 
 #define TCG_TARGET_NB_REGS           16
@@ -81,6 +81,9 @@ typedef enum {
 #define TCG_TARGET_HAS_not_i32       1
 #define TCG_TARGET_HAS_orc_i32       0
 #define TCG_TARGET_HAS_rot_i32       1
+#define TCG_TARGET_HAS_MEMORY_BSWAP  0
+
+
 
 #define TCG_TARGET_HAS_GUEST_BASE
 
