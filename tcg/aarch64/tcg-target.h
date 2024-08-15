@@ -42,6 +42,9 @@ typedef enum {
 // Register to use as an internal intermediate
 #define TCG_TMP_REG                  TCG_REG_R28
 
+// The zero registers is actually just the stack pointer id
+#define TCG_REG_RZR                  TCG_REG_SP
+
 // Function call generation constants
 #define TCG_REG_CALL_STACK           TCG_REG_SP
 #define TCG_TARGET_STACK_ALIGN       16
