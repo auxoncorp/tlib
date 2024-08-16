@@ -8739,8 +8739,7 @@ static int disas_thumb2_insn(CPUState *env, DisasContext *s, uint16_t insn_hw1)
                     tmp = load_reg(s, 14);
                     gen_st32(tmp, addr, 0);
                     tcg_gen_addi_i32(addr, addr, 4);
-                    tmp = tcg_temp_new_i32();
-                    gen_helper_cpsr_read(tmp);
+                    tmp = load_cpu_field(spsr);
                     gen_st32(tmp, addr, 0);
                     if (insn & (1 << 21)) {
                         if ((insn & (1 << 24)) == 0) {
