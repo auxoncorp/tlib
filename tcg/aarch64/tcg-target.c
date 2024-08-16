@@ -118,8 +118,14 @@ static int target_parse_constraint(TCGArgConstraint *ct, const char **pct_str)
 }
 static inline int tcg_target_const_match(tcg_target_long val, const TCGArgConstraint *arg_ct)
 {
-    // Don't really understand this function, so just return true for now
-    return 1;
+    // Adapted from arm32 target
+    int ct;
+    ct = arg_ct->ct;
+    if (ct & TCG_CT_CONST) {
+        return 1;
+    } else {
+        return 0;
+    }
 }
 
 
@@ -128,11 +134,32 @@ static void reloc_pc32(void *code_ptr, tcg_target_long target)
     // code_ptr should be set to target - current PC
     // Adapted from arm32 target
     uint32_t offset = target - ((tcg_target_long)code_ptr + 8);
-    *(uint32_t *)code_ptr = ((*(uint32_t *)code_ptr)) | (offset);
+    *(uint32_t *)code_ptr = offset;
+}
+static void reloc_condbr_19(void *code_ptr, tcg_target_long target, int cond)
+{
+    // code_ptr should have bits [23, 5] set to target - current PC, 4 to zero and [3, 0] to cond
+    // Its a bit of a hack to set cond this way, but tcg does not seem to offer a better solution
+    uint32_t offset = target - ((tcg_target_long)code_ptr + 8);
+    // Mask out 19 bits from the offset
+    *(uint32_t *)code_ptr |= ((offset & 0x7FFFF) << 5) | cond;
+
+}
+static void reloc_jump26(void *code_ptr, tcg_target_long target)
+{
+    // code_ptr should have bits [25, 0] set to target - current PC
+    uint32_t offset = target - ((tcg_target_long)code_ptr + 8);
+    *(uint32_t *)code_ptr |= (offset & 0x3FFFFFF);
 }
 static void patch_reloc(uint8_t *code_ptr, int type, tcg_target_long value, tcg_target_long addend)
 {
     switch (type) {
+        case R_AARCH64_JUMP26:
+            reloc_jump26(code_ptr, value);
+            break;
+        case R_AARCH64_CONDBR19:
+            reloc_condbr_19(code_ptr, value, addend);
+            break;
         case R_AARCH64_PREL32: 
             /* PC-relative 32-bit.	*/
             reloc_pc32(code_ptr, value);
@@ -147,6 +174,10 @@ static inline void tcg_out_br(TCGContext *s, int addr_reg)
 {
     tcg_out32(s,  0xd61f0000 | (addr_reg << 5));
 }
+static inline void tcg_out_b(TCGContext *s, int offset)
+{
+    tcg_out32(s, 0x14000000 | (offset << 0));
+}
 static inline void tcg_out_bl(TCGContext *s, int offset)
 {
     tcg_out32(s, 0x94000000 | (offset << 0));
@@ -155,21 +186,54 @@ static inline void tcg_out_blr(TCGContext *s, int reg)
 {
     tcg_out32(s, 0xd63f0000 | (reg << 5));
 }
+static inline void tcg_out_ret(TCGContext *s, int reg)
+{
+    tcg_out32(s, 0xd65f0000 | (reg << 5));
+}
+static inline void tcg_out_b_noaddr(TCGContext *s)
+{
+    // This sets up a unconditional branch to a already emited adress
+    // Since there is no tcg_out6 have to do it manually to not overwrite the top 2 bits
+    s->code_ptr += 3;
+    *s->code_ptr |= 0b00010100;
+    s->code_ptr += 1;
+}
 
-static inline void tcg_out_goto_label(TCGContext *s, int label_index)
+static inline void tcg_out_goto_label(TCGContext *s, int cond, int label_index)
 {
     TCGLabel *l = &s->labels[label_index];
 
+
     if (l->has_value) {
         // Label has a target address so we just branch to it
-        tcg_out_movi(s, TCG_TYPE_PTR, TCG_TMP_REG, l->u.value);
-        tcg_out_br(s, TCG_TMP_REG);
+        if (cond == COND_AL) {
+            // Unconditional branch
+            tcg_out_movi(s, TCG_TYPE_PTR, TCG_TMP_REG, l->u.value);
+            tcg_out_br(s, TCG_TMP_REG);
+        } else {
+            // Conditional branch, takes 19-bit PC-relative offset
+            int offset = l->u.value - (tcg_target_long)s->code_ptr;
+            if (abs(offset) > 0x7FFFF) {
+                tcg_abortf("Conditional branches further than %u not supported yet", 0x7FFFF);
+            } else {
+                // Offset needs to be masked to 19-bits
+                tcg_out32(s, 0x54000000 | ((0x7FFFF & offset) << 5) | (cond << 0));
+            }
+        }
     } else {
         // Label does not have the address so we need a reloc
         // This is mostly just taken from the arm32 target, I do not fully understand it
         // The reloc type is just the one i found in elf.h that seemed most appropriate
-        tcg_out_reloc(s, s->code_ptr, R_AARCH64_PREL32, label_index, 31337); // IDK what this constant it
-        tcg_out8(s, 0b00010100); // branch instruction and 2 bits of padding
+        if (cond == COND_AL) {
+            // Unconditional branch
+            tcg_out_reloc(s, s->code_ptr, R_AARCH64_JUMP26, label_index, 31337); // Unused constant
+            tcg_out_b_noaddr(s);
+        } else {
+            tcg_out_reloc(s, s->code_ptr, R_AARCH64_CONDBR19, label_index, cond); // Reloc needs to set the condition bits correctly
+            s->code_ptr += 3;
+            tcg_out8(s, 0b01010100); // Conditional branch opcode
+
+        }
     }
 }
 
@@ -180,8 +244,8 @@ static inline void tcg_out_calli(TCGContext *s, tcg_target_ulong addr)
     // Offset is only 26-bits, so we can't jump further than that without storing it in a reg first
     int offset = addr - (tcg_target_long)s->code_ptr;
     if (abs(offset) > 0xfffff) {
-        // Jump is too long, store it in a register first and then branch and link
-        tcg_out_movi(s, 0, TCG_TMP_REG, offset);
+        // Jump is too long, store the address in a register and then branch and link
+        tcg_out_movi(s, 0, TCG_TMP_REG, addr);
         tcg_out_blr(s, TCG_TMP_REG);
     } else {
         // Offset fits in immediate, so we just branch and link
@@ -219,6 +283,12 @@ static inline void tcg_out_movi64(TCGContext *s, int reg1, tcg_target_long imm)
     imm = imm >> 16;
     tcg_out32(s, 0xf2800000 | (SHIFT_48 << 21) | ((0xffff & imm) << 5) | (reg1 << 0)); // MOVK
 }
+static inline void tcg_out_movi32(TCGContext *s, int reg1, tcg_target_long imm)
+{
+    tcg_out32(s, 0x52800000 | (SHIFT_0 << 21)  | ((0xffff & imm) << 5) | (reg1 << 0)); // MOVZ
+    imm = imm >> 16;
+    tcg_out32(s, 0x72800000 | (SHIFT_16 << 21) | ((0xffff & imm) << 5) | (reg1 << 0)); // MOVK
+}
 
 // Fills reg_dest with nbit of data from reg_base + offset_reg
 static inline void tcg_out_ld_reg_offset(TCGContext *s, int bits, int reg_dest, int reg_base, int offset_reg)
@@ -226,10 +296,10 @@ static inline void tcg_out_ld_reg_offset(TCGContext *s, int bits, int reg_dest, 
     switch (bits)
     {
     case 32:
-        tcg_out32(s, 0x78600800 | (offset_reg << 16) | (reg_base << 5) | (reg_dest << 0));
+        tcg_out32(s, 0x78600800 | (offset_reg << 16) | (0b011 << 13) | (reg_base << 5) | (reg_dest << 0));
         break;
     case 64:
-        tcg_out32(s, 0xf8600800 | (offset_reg << 16) | (reg_base << 5) | (reg_dest << 0));
+        tcg_out32(s, 0xf8600800 | (offset_reg << 16) | (0b011 << 13) | (reg_base << 5) | (reg_dest << 0));
         break;
     default:
         tcg_abortf("ld %s bits wide not implemented", bits);
@@ -256,10 +326,11 @@ static inline void tcg_out_st_reg_offset(TCGContext *s, int bits, int reg_src, i
     switch (bits)
     {
     case 32:
-        tcg_out32(s, 0x78200800 | (offset_reg << 16) | (reg_base << 5) | (reg_src << 0));
+        tcg_out32(s, 0x78200800 | (offset_reg << 16) | (0b011 << 13) | (reg_base << 5) | (reg_src << 0));
         break;
     case 64:
-        tcg_out32(s, 0xf8200800 | (offset_reg << 16) | (reg_base << 5) | (reg_src << 0));
+        // The constant is to set some needed flags
+        tcg_out32(s, 0xf8200800 | (offset_reg << 16) | (0b011 << 13) | (reg_base << 5) | (reg_src << 0));
         break;
     default:
         tcg_abortf("st %s bits wide not implemented", bits);
@@ -302,19 +373,37 @@ static inline void tcg_out_addi(TCGContext *s, int reg1, int reg2, tcg_target_lo
     tcg_out32(s, 0x91000000 | (imm << 10) | (reg2 << 5) | (reg1 << 0));
 }
 
-static inline void tcg_out_add_reg(TCGContext *s, int reg_dest, int reg1, int reg2) 
+static inline void tcg_out_add_reg(TCGContext *s, int bits , int reg_dest, int reg1, int reg2) 
 {
-    tcg_out32(s, 0x8b200000 | (reg2 << 16) | (reg1 << 5) | (reg_dest << 0));
+    switch(bits) {
+        case 32:
+            tcg_out32(s, 0x0b200000 | (reg2 << 16) | (reg1 << 5) | (reg_dest << 0));
+            break;
+        case 64:
+            tcg_out32(s, 0x8b200000 | (reg2 << 16) | (reg1 << 5) | (reg_dest << 0));
+            break;
+        default:
+            tcg_abortf("add_reg called with unsupported bit width: %i", bits);
+    }
 }
-static inline void tcg_out_add_imm(TCGContext *s, int reg_dest, int reg_in, tcg_target_long imm) 
+static inline void tcg_out_add_imm(TCGContext *s, int bits , int reg_dest, int reg_in, tcg_target_long imm) 
 {
-    tcg_out_movi64(s, TCG_TMP_REG, imm);
-    tcg_out_add_reg(s, reg_dest, reg_in, TCG_TMP_REG);
+    switch(bits) {
+        case 32:
+            tcg_out_movi32(s, TCG_TMP_REG, imm);
+            break;
+        case 64:
+            tcg_out_movi64(s, TCG_TMP_REG, imm);
+            break;
+        default:
+            tcg_abortf("add_imm for %i bits not implemented", bits);
+    }
+    tcg_out_add_reg(s, bits, reg_dest, reg_in, TCG_TMP_REG);
 }
 static inline void tcg_out_cmp(TCGContext *s, int reg1, int reg2)
 {
     // CMP is actually just subs with the zero register as the destination
-    tcg_out32(s, 0xeb200000 | (reg2 << 16) | (reg1 << 5) | (TCG_REG_RZR << 0 ));
+    tcg_out32(s, 0xeb000000 | (reg2 << 16) | (reg1 << 5) | (TCG_REG_RZR << 0 ));
 }
 static inline void tcg_out_cmpi(TCGContext *s, int reg, tcg_target_long imm)
 {
@@ -352,11 +441,15 @@ static inline void tcg_out_op(TCGContext *s, TCGOpcode opc, const TCGArg *args, 
             // I think the lower 24-bits contain the jmp target, so we just write the start
             // of of the branch immediate instruction and the imm will already be filled in
             s->tb_jmp_offset[args[0]] = s->code_ptr - s->code_buf;
-            tcg_out8(s, 0b00010100); // branch instruction and 2 bits of padding
+            tcg_out_b_noaddr(s);
+
         } else {
             // Indirect jump
             tcg_abortf("op_goto_tb indirect jump not implemented");
         }
+        s->tb_next_offset[args[0]] = s->code_ptr - s->code_buf;
+        // Debug nop
+        //tcg_out32(s, 0xD503201F);
         break;
     case INDEX_op_call:
         // Logic taken from the other targets, apparently const_args[0] tells if it is a imm or a reg target
@@ -371,7 +464,7 @@ static inline void tcg_out_op(TCGContext *s, TCGOpcode opc, const TCGArg *args, 
         tcg_abortf("op_jmp not implemented");
         break;
     case INDEX_op_br:
-        tcg_out_goto_label(s, args[0]);
+        tcg_out_goto_label(s, COND_AL, args[0]);
         break;
     case INDEX_op_mb:
         tcg_abortf("op_mp not implemented");
@@ -404,7 +497,13 @@ static inline void tcg_out_op(TCGContext *s, TCGOpcode opc, const TCGArg *args, 
         tcg_abortf("op_movi_i32 not implemented");
         break;
     case INDEX_op_add_i32:
-        tcg_abortf("op_add_i32 not implemented");
+        if (const_args[2]) {
+            // Add with immediate
+            tcg_out_add_imm(s, 32 ,args[0], args[1], args[2]);
+        } else {
+            tcg_out_add_reg(s, 32 , args[0], args[1], args[2]);
+            // Add with registers
+        }
         break;
     case INDEX_op_sub_i32:
         tcg_abortf("op_sub_i32 not implemented");
@@ -420,12 +519,6 @@ static inline void tcg_out_op(TCGContext *s, TCGOpcode opc, const TCGArg *args, 
         break;
     case INDEX_op_xor_i32:
         tcg_abortf("op_xor_i32 not implemented");
-        break;
-    case INDEX_op_add2_i32:
-        tcg_abortf("op_add2_i32 not implemented");
-        break;
-    case INDEX_op_sub2_i32:
-        tcg_abortf("op_sub2_i32 not implemented");
         break;
     case INDEX_op_neg_i32:
         tcg_abortf("op_neg_i32 not implemented");
@@ -453,17 +546,19 @@ static inline void tcg_out_op(TCGContext *s, TCGOpcode opc, const TCGArg *args, 
         break;
     case INDEX_op_rotr_i32:
         tcg_abortf("op_rotr_i32 not implemented");
-        break;
+       break;
     case INDEX_op_rotl_i32:
         tcg_abortf("op_rotl_i32 not implemented");
         break;
     case INDEX_op_brcond_i32:
         if (const_args[1]) {
             // Second arg is an immediate
-            tcg_out_br_condi(s, args[0], args[2], args[1], args[3]);
+            tcg_out_cmpi(s, args[0], args[1]);
+            tcg_out_goto_label(s, tcg_cond_to_arm_cond[args[2]], args[3]);
         } else {
             // Second arg is a register
-            tcg_out_br_cond(s, args[0], args[2], args[1], args[3]);
+            tcg_out_cmp(s, args[0], args[1]);
+            tcg_out_goto_label(s, tcg_cond_to_arm_cond[args[2]], args[3]);
         }
         break;
     case INDEX_op_brcond2_i32:
@@ -521,20 +616,20 @@ static inline void tcg_out_op(TCGContext *s, TCGOpcode opc, const TCGArg *args, 
         tcg_out_ld_offset(s, 32, args[0], args[1], args[2]);
         break;
     case INDEX_op_ld_i64:
-        tcg_out_ld_offset(s, 32, args[0], args[1], args[2]);
+        tcg_out_ld_offset(s, 64, args[0], args[1], args[2]);
         break;
     case INDEX_op_st32_i64:
         tcg_out_st_offset(s, 32, args[0], args[1], args[2]);
         break;
     case INDEX_op_st_i64:
-        tcg_out_st_offset(s, 32, args[0], args[1], args[2]);
+        tcg_out_st_offset(s, 64, args[0], args[1], args[2]);
         break;
     case INDEX_op_add_i64:
         if (const_args[2]) {
             // Add with immediate
-            tcg_out_add_imm(s, args[0], args[1], args[2]);
+            tcg_out_add_imm(s, 64 ,args[0], args[1], args[2]);
         } else {
-            tcg_out_add_reg(s, args[0], args[1], args[2]);
+            tcg_out_add_reg(s, 64, args[0], args[1], args[2]);
             // Add with registers
         }
         break;
@@ -547,15 +642,27 @@ static inline void tcg_out_op(TCGContext *s, TCGOpcode opc, const TCGArg *args, 
 }
 
 static const TCGTargetOpDef arm_op_defs[] = {
+    { INDEX_op_exit_tb, { } },
+    { INDEX_op_goto_tb, { } },
     { INDEX_op_call, { "ri" } },
 
+    { INDEX_op_mov_i32, { "r", "r" } },
+
     { INDEX_op_brcond_i32, { "r", "r" } },
+
     { INDEX_op_ld32u_i64,  { "r", "r" } },
     { INDEX_op_ld_i64,     { "r", "r" }},
+
     { INDEX_op_st32_i64,   { "r", "r" } },
     { INDEX_op_st_i64,     { "r", "r" }},
+
     { INDEX_op_add_i64,    { "r", "r" , "r"} },
     { INDEX_op_sub_i64,    { "r", "r" , "r"} },
+
+    { INDEX_op_add_i32, { "r", "r", "r" } },
+    { INDEX_op_sub_i32, { "r", "r", "r" } },
+    { INDEX_op_mul_i32, { "r", "r", "r" } },
+
     { -1 },
 };
 
@@ -623,10 +730,10 @@ static void tcg_target_qemu_prologue(TCGContext *s)
 
     // Branch to code
     tcg_out_mov(s, TCG_TYPE_PTR, TCG_AREG0, tcg_target_call_iarg_regs[0]);
-    tcg_out_blr(s, tcg_target_call_iarg_regs[1]);
-    tb_ret_addr = s->code_ptr;
+    tcg_out_br(s, tcg_target_call_iarg_regs[1]);
 
     // Epilogue
+    tb_ret_addr = s->code_ptr;
     // Load all the registers we saved above to restore system state
     tcg_out_ldp(s, TCG_REG_R29, TCG_REG_R30, TCG_REG_SP, 80);
     tcg_out_ldp(s, TCG_REG_R27, TCG_REG_R28, TCG_REG_SP, 64);
@@ -635,4 +742,6 @@ static void tcg_target_qemu_prologue(TCGContext *s)
     tcg_out_ldp(s, TCG_REG_R21, TCG_REG_R22, TCG_REG_SP, 16);
     tcg_out_ldp(s, TCG_REG_R19, TCG_REG_R20, TCG_REG_SP, 0);
     tcg_out_addi(s, TCG_REG_SP, TCG_REG_SP, 80); // Pop the stack
+    // Return based on the link address
+    tcg_out_ret(s, TCG_REG_R30);
 }

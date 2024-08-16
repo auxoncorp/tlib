@@ -205,9 +205,16 @@ static inline void tb_set_jmp_target1(uintptr_t jmp_addr, uintptr_t addr)
     register unsigned long _flg __asm ("a3");
 #endif
 
+#if defined(__arm__)
     /* we could use a ldr pc, [pc, #-4] kind of branch and avoid the flush */
     *(uint32_t *)jmp_addr =
         (*(uint32_t *)jmp_addr & ~0xffffff) | (((addr - (jmp_addr + 8)) >> 2) & 0xffffff);
+#endif
+#if defined(__aarch64__)
+    // The 32-bit version is overcomplicated
+    // Write offset to lowest 26-bits
+    *(uint32_t *)jmp_addr |= ((addr - (jmp_addr + 4)) + 1) & 0x3FFFFFF;
+#endif
 
 #if defined(__GNUC__)
     __builtin___clear_cache((char *)jmp_addr, (char *)jmp_addr + 4);
