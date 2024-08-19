@@ -365,7 +365,9 @@ void pmpcfg_csr_write(CPUState *env, uint32_t reg_index, target_ulong val)
 #endif
 
     for (i = 0; i < sizeof(target_ulong); i++) {
-        cfg_val = (val >> 8 * i) & 0xff;
+        // Bits 5 and 6 are WARL since Priviledged ISA 1.11
+        // The soft should ignore them either way in older spec
+        cfg_val = (val >> 8 * i) & 0x9f;
         pmp_write_cfg(env, base_offset + i, cfg_val);
     }
 }
