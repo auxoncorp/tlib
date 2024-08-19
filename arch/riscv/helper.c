@@ -504,7 +504,11 @@ void do_interrupt(CPUState *env)
         /* handle the trap in M-mode */
         env->mepc = env->pc;
         if (hasbadaddr) {
-            env->mtval = env->badaddr;
+            if (fixed_cause == RISCV_EXCP_ILLEGAL_INST) {
+                env->mtval = env->opcode;
+            } else {
+                env->mtval = env->badaddr;
+            }
         }
 
         /* Lowest 2 bits of MTVEC change mode to vectored (01) or CLIC (11) */
@@ -553,7 +557,11 @@ void do_interrupt(CPUState *env)
         /* handle the trap in S-mode */
         env->sepc = env->pc;
         if (hasbadaddr) {
-            env->stval = env->badaddr;
+            if (fixed_cause == RISCV_EXCP_ILLEGAL_INST) {
+                env->stval = env->opcode;
+            } else {
+                env->stval = env->badaddr;
+            }
         }
 
         /* mtvec controls CLIC mode for all privileges, lowest bit of STVEC switches CLINT vectoring for S mode */

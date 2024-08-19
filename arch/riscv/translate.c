@@ -2236,6 +2236,8 @@ static void gen_fp_arith(DisasContext *dc, uint32_t opc, int rd, int rs1, int rs
         return;
     }
 
+    gen_sync_pc(dc);
+
     TCGv_i64 rm_reg = tcg_temp_local_new_i64();
     TCGv write_int_rd = tcg_temp_local_new();
     tcg_gen_movi_i64(rm_reg, rm);
