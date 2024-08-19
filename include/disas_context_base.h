@@ -1,5 +1,4 @@
-#ifndef _DISAS_CONTEXT_BASE_GUARD_
-#define _DISAS_CONTEXT_BASE_GUARD_
+#pragma once
 
 typedef struct DisasContextBase {
     struct TranslationBlock *tb;
@@ -10,4 +9,3 @@ typedef struct DisasContextBase {
     bool generate_block_exit_check;
 } DisasContextBase;
 
-#endif /* _DISAS_CONTEXT_BASE_GUARD_ */
