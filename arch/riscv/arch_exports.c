@@ -337,6 +337,24 @@ uint32_t tlib_set_elen(uint32_t elen)
 
 EXC_INT_1(uint32_t, tlib_set_elen, uint32_t, elen)
 
+void tlib_set_pmpaddr_bits(uint32_t number_of_bits)
+{
+    const uint32_t maximum_number_of_bits =
+#if defined(TARGET_RISCV64)
+    // Top 10 bits are WARL
+    54;
+#else
+    32;
+#endif
+
+    if (number_of_bits > maximum_number_of_bits || number_of_bits == 0) {
+        tlib_abortf("Unsupported number of PMPADDR bits %" PRIu32 " expected between 1 and %" PRIu32 ", inclusive", number_of_bits, maximum_number_of_bits);
+    }
+    cpu->pmp_addr_mask = ((uint64_t)1 << (uint64_t)number_of_bits) - 1;
+}
+
+EXC_VOID_1(tlib_set_pmpaddr_bits, uint32_t, number_of_bits)
+
 static bool check_vector_register_number(uint32_t regn)
 {
     if (regn >= 32) {

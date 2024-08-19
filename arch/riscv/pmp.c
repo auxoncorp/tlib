@@ -235,6 +235,7 @@ static void pmp_update_rule(CPUState *env, uint32_t pmp_index)
 static int pmp_is_in_range(CPUState *env, int pmp_index, target_ulong addr)
 {
     int result = 0;
+    addr &= cpu->pmp_addr_mask;
 
     if ((addr >= env->pmp_state.addr[pmp_index].sa) && (addr <= env->pmp_state.addr[pmp_index].ea)) {
         result = 1;
@@ -254,6 +255,7 @@ int pmp_find_overlapping(CPUState *env, target_ulong addr, target_ulong size, in
     int i;
     target_ulong pmp_sa;
     target_ulong pmp_ea;
+    addr &= cpu->pmp_addr_mask;
 
     for (i = starting_index; i < MAX_RISCV_PMPS; i++) {
         pmp_sa = env->pmp_state.addr[i].sa;
@@ -281,6 +283,7 @@ int pmp_get_access(CPUState *env, target_ulong addr, target_ulong size, int acce
     target_ulong s = 0;
     target_ulong e = 0;
     pmp_priv_t allowed_privs = 0;
+    addr &= cpu->pmp_addr_mask;
 
     /* 
      * According to the RISC-V Privileged Architecture Specification (ch. 3.6),
@@ -407,7 +410,7 @@ void pmpaddr_csr_write(CPUState *env, uint32_t addr_index, target_ulong val)
 
     if (addr_index < MAX_RISCV_PMPS) {
         if (!pmp_is_locked(env, addr_index)) {
-            env->pmp_state.pmp[addr_index].addr_reg = val;
+            env->pmp_state.pmp[addr_index].addr_reg = val & cpu->pmp_addr_mask;
             pmp_update_rule(env, addr_index);
         } else {
             PMP_DEBUG("ignoring pmpaddr write - locked");
