@@ -1,7 +1,7 @@
 #pragma once
 
-// 32 total registers, 31 general purpose
-#define TCG_TARGET_NB_REGS           33
+// 33 total registers, 31 general purpose
+#define TCG_TARGET_NB_REGS 33
 
 typedef enum {
     TCG_REG_R0 = 0,
@@ -49,7 +49,6 @@ typedef enum {
 #define TCG_REG_CALL_STACK           TCG_REG_SP
 #define TCG_TARGET_STACK_ALIGN       16
 #define TCG_TARGET_CALL_STACK_OFFSET 0
-
 
 // Optional instructions, all disabled for mvp version
 #define TCG_TARGET_HAS_andc_i32      0
@@ -99,21 +98,23 @@ typedef enum {
 #define TCG_TARGET_HAS_qemu_st8_i32  0
 #define TCG_TARGET_HAS_rot_i64       0
 
-// Comments in other targets says this must be synced with cpu-defs.h
-// but I can't find what is needed to update. just picking a random register for now
+// Comments in other targets says this must be synced with cpu-defs.h, but unclear what
+// ascpect needs to be syncronized
+// The 32-bit arm target uses a high numbered callee-saved register, so I'm picking
+// a similar one
 enum {
     TCG_AREG0 = TCG_REG_R27,
 };
 
-
+// Taken from arm32 target, unclear if it is needed on aarch64
 static inline void flush_icache_range(unsigned long start, unsigned long stop)
 {
 #if defined(__GNUC__)
     __builtin___clear_cache((char *)start, (char *)stop);
 #else
-    register unsigned long _beg __asm ("a1") = start;
-    register unsigned long _end __asm ("a2") = stop;
-    register unsigned long _flg __asm ("a3") = 0;
+    register unsigned long _beg __asm("a1") = start;
+    register unsigned long _end __asm("a2") = stop;
+    register unsigned long _flg __asm("a3") = 0;
     __asm __volatile__ ("swi 0x9f0002" : : "r" (_beg), "r" (_end), "r" (_flg));
 #endif
 }

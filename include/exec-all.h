@@ -189,6 +189,11 @@ void tb_phys_invalidate(TranslationBlock *tb, tb_page_addr_t page_addr);
 
 extern TranslationBlock *tb_phys_hash[CODE_GEN_PHYS_HASH_SIZE];
 
+/* tb_set_jmp_target1 gets called with jmp_addr pointing to a branch instruction
+ * already emited by the tcg_target.
+ * The functions responsibility is to set the branch target by writing the offset
+ * Ideally should be in the tcg-target since it contains target specifics
+ */
 #if defined(__i386__) || defined(__x86_64__)
 static inline void tb_set_jmp_target1(uintptr_t jmp_addr, uintptr_t addr)
 {
@@ -207,13 +212,18 @@ static inline void tb_set_jmp_target1(uintptr_t jmp_addr, uintptr_t addr)
 
 #if defined(__arm__)
     /* we could use a ldr pc, [pc, #-4] kind of branch and avoid the flush */
+    /* The >> 2 is because armv7 adds two zeroes to the bottom of the immediate
+     * in the A1 encoding of the b instruction
+     */
     *(uint32_t *)jmp_addr =
         (*(uint32_t *)jmp_addr & ~0xffffff) | (((addr - (jmp_addr + 8)) >> 2) & 0xffffff);
 #endif
 #if defined(__aarch64__)
-    // The 32-bit version is overcomplicated
-    // Write offset to lowest 26-bits
-    *(uint32_t *)jmp_addr |= ((addr - (jmp_addr + 4)) + 1) & 0x3FFFFFF;
+    /* Write offset to lowest 26-bits,
+    * taking care to not overwrite the already emitted opcode
+    * */
+    *(uint32_t *)jmp_addr = 
+        (*(uint32_t *)jmp_addr & ~0x3FFFFFF) | (((addr - (jmp_addr + 4)) + 1) & 0x3FFFFFF);
 #endif
 
 #if defined(__GNUC__)

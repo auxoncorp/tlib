@@ -11,18 +11,18 @@ option (HOST_BIG_ENDIAN "Host big endian" OFF)
 
 if(NOT DEFINED HOST_ARCH)
     message(STATUS "'HOST_ARCH' isn't set; analyzing the CPU (${CMAKE_SYSTEM_PROCESSOR})...")
-    if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "(arm)")
-        set (HOST_ARCH "arm" CACHE STRING "Host architecture")
-    elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "(aarch64)")
-        set (HOST_ARCH "aarch64" CACHE STRING "Host architecture")
-    elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "(amd64|86)")
+    if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "(amd64|86)")
         set (HOST_ARCH "i386" CACHE STRING "Host architecture")
+    elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "(aarch64|arm64)")
+        set (HOST_ARCH "aarch64" CACHE STRING "Host architecture")
+    # Has to come last to not match arm macs arm64, while still matching a cpu like armv7l
+    elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "(arm)")
+        set (HOST_ARCH "arm" CACHE STRING "Host architecture")
     else()
         message(FATAL_ERROR "CMAKE_SYSTEM_PROCESSOR '${CMAKE_SYSTEM_PROCESSOR}' doesn't seem to be supported. Supported host architectures are: 'arm', 'i386'. Please set 'HOST_ARCH' manually.")
     endif()
 endif()
 message(STATUS "Using HOST_ARCH: ${HOST_ARCH}")
-message(STATUS "CPU: ${CMAKE_SYSTEM_PROCESSOR}")
 
 # Detect whether the host is 32- or 64-bit
 math (EXPR WORD_SIZE_FOUND "${CMAKE_SIZEOF_VOID_P} * 8")
@@ -52,6 +52,12 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
         add_definitions(-fomit-frame-pointer)
 endif()
 
+if (HOST_ARCH STREQUAL "aarch64" AND CMAKE_BUILD_TYPE STREQUAL "Release")
+    # gcc emits a clobber error for unwind.h DECLARE_ENV_PTR() in release mode on aarch64
+    # so demote it to a warning in this case
+    add_definitions(-Wno-error=clobbered)
+endif()
+
 option (TARGET_BIG_ENDIAN "Target big endian" OFF)
 set (TARGET_ARCH "" CACHE STRING "Target architecture")
 set (TARGET_WORD_SIZE "32" CACHE STRING "Target word size")
@@ -64,8 +70,6 @@ if(NOT HOST_ARCH)
     message (FATAL_ERROR "Host architecture not set")
 endif()
 
-set (TARGET_ARCH riscv)
-add_definitions(-Wno-error=clobbered)
 if(NOT TARGET_ARCH)
     message (FATAL_ERROR "Target architecture not set")
 endif()
