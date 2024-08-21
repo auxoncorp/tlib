@@ -52,8 +52,8 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
         add_definitions(-fomit-frame-pointer)
 endif()
 
-if (HOST_ARCH STREQUAL "aarch64" AND CMAKE_BUILD_TYPE STREQUAL "Release")
-    # gcc emits a clobber error for unwind.h DECLARE_ENV_PTR() in release mode on aarch64
+if (HOST_ARCH MATCHES "(arm|aarch64)" AND CMAKE_BUILD_TYPE STREQUAL "Release")
+    # gcc emits a clobber error for unwind.h DECLARE_ENV_PTR() in release mode on arm targets
     # so demote it to a warning in this case
     add_definitions(-Wno-error=clobbered)
 endif()
