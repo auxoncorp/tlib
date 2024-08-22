@@ -101,20 +101,15 @@ static void tcg_out_reloc(TCGContext *s, uint8_t *code_ptr, int type, int label_
     TCGRelocation *r;
 
     l = &s->labels[label_index];
-    if (l->has_value) {
-        /* FIXME: This may break relocations on RISC targets that
-           modify instruction fields in place.  The caller may not have
-           written the initial value.  */
-        patch_reloc(code_ptr, type, l->u.value, addend);
-    } else {
-        /* add a new relocation entry */
-        r = tcg_malloc(sizeof(TCGRelocation));
-        r->type = type;
-        r->ptr = code_ptr;
-        r->addend = addend;
-        r->next = l->u.first_reloc;
-        l->u.first_reloc = r;
-    }
+    // tcg_out_reloc should only be called once on each label
+    tcg_debug_assert(!l->has_value);
+    /* add a new relocation entry */
+    r = tcg_malloc(sizeof(TCGRelocation));
+    r->type = type;
+    r->ptr = code_ptr;
+    r->addend = addend;
+    r->next = l->u.first_reloc;
+    l->u.first_reloc = r;
 }
 
 static void tcg_out_label(TCGContext *s, int label_index, tcg_target_long value)
