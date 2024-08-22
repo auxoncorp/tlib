@@ -249,6 +249,16 @@ static x86_def_t builtin_x86_defs[] = {
                         CPUID_EXT_XTPR, .ext2_features = (PPRO_FEATURES & EXT2_FEATURE_MASK) | CPUID_EXT2_NX,
         .ext3_features = CPUID_EXT3_LAHF_LM,
         .xlevel = 0x8000000A, .model_id = "Intel(R) Atom(TM) CPU N270   @ 1.60GHz",
+    }, {
+        .name = "x86_64",
+        .level = 5, .family = 6, .model = 28, .stepping = 2,
+        .features = PPRO_FEATURES | CPUID_MTRR | CPUID_CLFLUSH | CPUID_MCA | CPUID_VME | CPUID_DTS | CPUID_ACPI | CPUID_SS |
+                    CPUID_HT | CPUID_TM | CPUID_PBE,
+        /* Some CPUs got no CPUID_SEP */
+        .ext_features = CPUID_EXT_SSE3 | CPUID_EXT_MONITOR | CPUID_EXT_SSSE3 | CPUID_EXT_DSCPL | CPUID_EXT_EST | CPUID_EXT_TM2 |
+                        CPUID_EXT_XTPR, .ext2_features = (PPRO_FEATURES & EXT2_FEATURE_MASK) | CPUID_EXT2_NX | CPUID_EXT2_LM | CPUID_EXT2_SYSCALL,
+        .ext3_features = CPUID_EXT3_LAHF_LM,
+        .xlevel = 0x8000000A, .model_id = "Virtual x86_64 CPU",
     },
 };
 
