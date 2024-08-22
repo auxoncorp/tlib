@@ -218,8 +218,8 @@ static void pmp_update_rule(CPUState *env, uint32_t pmp_index)
         break;
     }
 
-    env->pmp_state.addr[pmp_index].sa = sa;
-    env->pmp_state.addr[pmp_index].ea = ea;
+    env->pmp_state.addr[pmp_index].sa = sa & cpu->pmp_addr_mask;
+    env->pmp_state.addr[pmp_index].ea = ea & cpu->pmp_addr_mask;
 
     for (i = 0; i < MAX_RISCV_PMPS; i++) {
         const uint8_t a_field =
