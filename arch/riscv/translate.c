@@ -1368,24 +1368,31 @@ static void gen_load(DisasContext *dc, uint32_t opc, int rd, int rs1, target_lon
 
     case OPC_RISC_LB:
         tcg_gen_qemu_ld8s(t1, t0, dc->base.mem_idx);
+        gen_set_gpr(rd, t1);
         break;
     case OPC_RISC_LH:
         tcg_gen_qemu_ld16s(t1, t0, dc->base.mem_idx);
+        gen_set_gpr(rd, t1);
         break;
     case OPC_RISC_LW:
         tcg_gen_qemu_ld32s(t1, t0, dc->base.mem_idx);
+        gen_set_gpr(rd, t1);
         break;
     case OPC_RISC_LD:
         tcg_gen_qemu_ld64(t1, t0, dc->base.mem_idx);
+        gen_set_gpr(rd, t1);
         break;
     case OPC_RISC_LBU:
         tcg_gen_qemu_ld8u(t1, t0, dc->base.mem_idx);
+        gen_set_gpr(rd, t1);
         break;
     case OPC_RISC_LHU:
         tcg_gen_qemu_ld16u(t1, t0, dc->base.mem_idx);
+        gen_set_gpr(rd, t1);
         break;
     case OPC_RISC_LWU:
         tcg_gen_qemu_ld32u(t1, t0, dc->base.mem_idx);
+        gen_set_gpr(rd, t1);
         break;
     default:
         kill_unknown(dc, RISCV_EXCP_ILLEGAL_INST);
@@ -1393,7 +1400,6 @@ static void gen_load(DisasContext *dc, uint32_t opc, int rd, int rs1, target_lon
 
     }
 
-    gen_set_gpr(rd, t1);
     tcg_temp_free(t0);
     tcg_temp_free(t1);
 }
@@ -2757,28 +2763,33 @@ static void gen_system(DisasContext *dc, uint32_t opc, int rd, int rs1, int rs2,
         switch (opc) {
         case OPC_RISC_CSRRW:
             gen_helper_csrrw(dest, cpu_env, source1, csr_store);
+            gen_set_gpr(rd, dest);
             break;
         case OPC_RISC_CSRRS:
             gen_helper_csrrs(dest, cpu_env, source1, csr_store, rs1_pass);
+            gen_set_gpr(rd, dest);
             break;
         case OPC_RISC_CSRRC:
             gen_helper_csrrc(dest, cpu_env, source1, csr_store, rs1_pass);
+            gen_set_gpr(rd, dest);
             break;
         case OPC_RISC_CSRRWI:
             gen_helper_csrrw(dest, cpu_env, imm_rs1, csr_store);
+            gen_set_gpr(rd, dest);
             break;
         case OPC_RISC_CSRRSI:
             gen_helper_csrrs(dest, cpu_env, imm_rs1, csr_store, rs1_pass);
+            gen_set_gpr(rd, dest);
             break;
         case OPC_RISC_CSRRCI:
             gen_helper_csrrc(dest, cpu_env, imm_rs1, csr_store, rs1_pass);
+            gen_set_gpr(rd, dest);
             break;
         default:
             kill_unknown(dc, RISCV_EXCP_ILLEGAL_INST);
             break;
         }
 
-        gen_set_gpr(rd, dest);
         /* end tb since we may be changing priv modes, to get mmu_index right */
         tcg_gen_movi_tl(cpu_pc, dc->npc);
         gen_exit_tb_no_chaining(dc->base.tb);
@@ -2834,21 +2845,23 @@ static void gen_v_cfg(DisasContext *dc, uint32_t opc, int rd, int rs1, int rs2, 
         case OPC_RISC_VSETVL:
             gen_helper_vsetvl(returned_vl, cpu_env, rd_index, rs1_index, rs1_value, rs2_value,
                               rs1_is_uimm);
+            gen_set_gpr(rd, returned_vl);
             break;
         case OPC_RISC_VSETVLI_0:
         case OPC_RISC_VSETVLI_1:
             gen_helper_vsetvl(returned_vl, cpu_env, rd_index, rs1_index, rs1_value, zimm,
                               rs1_is_uimm);
+            gen_set_gpr(rd, returned_vl);
             break;
         case OPC_RISC_VSETIVLI:
             gen_helper_vsetvl(returned_vl, cpu_env, rd_index, rs1_index, rs1_index, zimm,
                               rs1_is_uimm);
+            gen_set_gpr(rd, returned_vl);
             break;
         default:
             kill_unknown(dc, RISCV_EXCP_ILLEGAL_INST);
             break;
     }
-    gen_set_gpr(rd, returned_vl);
 
     tcg_temp_free(rs1_value);
     tcg_temp_free(rs2_value);
