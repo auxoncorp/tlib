@@ -52,9 +52,9 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
         add_definitions(-fomit-frame-pointer)
 endif()
 
-if (HOST_ARCH MATCHES "(arm|aarch64)" AND CMAKE_BUILD_TYPE STREQUAL "Release")
+if (HOST_ARCH MATCHES "(arm|aarch64)" AND CMAKE_BUILD_TYPE STREQUAL "Release" AND NOT CMAKE_C_COMPILER_ID STREQUAL "AppleClang")
     # gcc emits a clobber error for unwind.h DECLARE_ENV_PTR() in release mode on arm targets
-    # so demote it to a warning in this case
+    # so demote it to a warning in this case, but not on arm mac clang, because this flag does not exsist
     add_definitions(-Wno-error=clobbered)
 endif()
 
@@ -141,13 +141,19 @@ add_subdirectory (softfloat-3 EXCLUDE_FROM_ALL)
 string (TOUPPER "${HOST_ARCH}" HOST_ARCH_U)
 string (TOUPPER "${TARGET_ACTUAL_ARCH}" TARGET_ACTUAL_ARCH_U)
 
+if (NOT CMAKE_C_COMPILER_ID MATCHES "(clang)" AND NOT "${TARGET_ACTUAL_ARCH}" STREQUAL "arm64")
+    # Clang throws warnings from the arm64 target's function stubs
+    # so do not enable -Werror in that case until that is fixed
+    add_definitions(-Werror)
+endif()
+
+
 add_definitions (
     -fPIC
     -Wall
     -Wextra
     -Wno-unused-parameter
     -Wno-sign-compare
-    -Werror
 
     -DTCG_TARGET_${HOST_ARCH_U}
 

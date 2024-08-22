@@ -1,5 +1,3 @@
-#include <elf.h>
-
 #include "tcg-target.h" //Not actually needed here, but keeps the editor happy
 #include "additional.h"
 
@@ -96,6 +94,10 @@ static void reloc_condbr_19(void *code_ptr, tcg_target_long target, int cond)
     *(uint32_t *)code_ptr |= ((offset & 0x7FFFF) << 5) | cond;
 
 }
+// Defines to match reloc names and ids from elf standard
+#define R_AARCH64_JUMP26	282
+#define R_AARCH64_CONDBR19	280
+#define R_AARCH64_PREL32	261
 static void reloc_jump26(void *code_ptr, tcg_target_long target)
 {
     // code_ptr should have bits [25, 0] set to target - current PC

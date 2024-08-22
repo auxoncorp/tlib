@@ -1,5 +1,8 @@
 #pragma once
 
+// Taken from other targets, apparently needed for the i386 guest
+#define TCG_TARGET_DEFAULT_MO 0
+
 // 33 total registers, 31 general purpose
 #define TCG_TARGET_NB_REGS 33
 
