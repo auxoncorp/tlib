@@ -94,7 +94,9 @@ static target_ulong validate_mpp_setting(CPUState *env, target_ulong value_to_wr
     }
 
     if(!allowed) {
-        value_to_write = (value_to_write & ~MSTATUS_MPP);
+        // Keep the old value instead
+        value_to_write &= ~MSTATUS_MPP;
+        value_to_write |= env->mstatus & MSTATUS_MPP;
     }
     return value_to_write;
 }
