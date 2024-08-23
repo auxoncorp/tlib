@@ -402,6 +402,10 @@ inline void csr_write_helper(CPUState *env, target_ulong val_to_write, target_ul
         mask |= MSTATUS_UXL | MSTATUS_SXL;
 #endif
         val_to_write = validate_mpp_setting(env, val_to_write);
+        if (!riscv_has_ext(env, RISCV_FEATURE_RVU)) {
+            /* MPRV is read-only 0 if U-mode is not supported, so disallow setting it */
+            val_to_write = set_field(val_to_write, MSTATUS_MPRV, 0);
+        }
         mstatus = (mstatus & ~mask) | (val_to_write & mask);
 
         int dirty = (mstatus & MSTATUS_FS) == MSTATUS_FS;
