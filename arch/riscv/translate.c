@@ -5190,7 +5190,13 @@ static void decode_RV32_64C0(DisasContext *dc)
             kill_unknown(dc, RISCV_EXCP_ILLEGAL_INST);
         } else {
             /* C.ADDI4SPN -> addi rd', x2, zimm[9:2]*/
-            gen_arith_imm(dc, OPC_RISC_ADDI, rd_rs2, 2, GET_C_ADDI4SPN_IMM(dc->opcode));
+            target_ulong imm = GET_C_ADDI4SPN_IMM(dc->opcode);
+            if (imm == 0) {
+                /* C.ADDI4SPN with nzuimm == 0 is reserved. */
+                kill_unknown(dc, RISCV_EXCP_ILLEGAL_INST);
+            } else {
+                gen_arith_imm(dc, OPC_RISC_ADDI, rd_rs2, 2, imm);
+            }
         }
         break;
     case 1:
