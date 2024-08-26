@@ -22,6 +22,7 @@
 #include "arch_callbacks.h"
 
 #include "helper.h"
+#include "host-utils.h"
 
 /* n must be a constant to be efficient */
 static inline target_long lshift(target_long x, int n)
