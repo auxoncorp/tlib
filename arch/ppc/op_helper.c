@@ -20,8 +20,7 @@
 #include "softmmu_exec.h"
 #include "arch_callbacks.h"
 
-// FIXME: this should point to tlib host-utils, but we have to fix placement of mulu64/muls64
-#include "../tcg/host-utils.h"
+#include "host-utils.h"
 #include "helper.h"
 #include "helper_regs.h"
 
