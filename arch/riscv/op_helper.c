@@ -594,19 +594,7 @@ inline void csr_write_helper(CPUState *env, target_ulong val_to_write, target_ul
             val_to_write &= ~RISCV_FEATURE_RVD;
         }
 
-        // allow MAFDCSUV bits in MISA to be modified
-        target_ulong mask = 0;
-        mask |= RISCV_FEATURE_RVM;
-        mask |= RISCV_FEATURE_RVA;
-        mask |= RISCV_FEATURE_RVF;
-        mask |= RISCV_FEATURE_RVD;
-        mask |= RISCV_FEATURE_RVC;
-        mask |= RISCV_FEATURE_RVS;
-        mask |= RISCV_FEATURE_RVU;
-        mask |= RISCV_FEATURE_RVV;
-        mask &= env->misa_mask;
-
-        env->misa = (val_to_write & mask) | (env->misa & ~mask);
+        env->misa = (val_to_write & env->misa_mask) | (env->misa & ~env->misa_mask);
         break;
     }
     case CSR_TSELECT:
