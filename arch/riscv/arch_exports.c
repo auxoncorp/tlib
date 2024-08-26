@@ -111,6 +111,9 @@ void tlib_allow_additional_feature(uint32_t feature_encoding)
     case RISCV_FEATURE_ZFH:
         cpu->instruction_extensions.enable_Zfh = 1;
         break;
+    case RISCV_FEATURE_SMEPMP:
+        cpu->instruction_extensions.enable_Smepmp = 1;
+        break;
     default:
         tlib_abort("Invalid architecture set extension.");
         break;

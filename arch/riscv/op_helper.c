@@ -661,12 +661,20 @@ inline void csr_write_helper(CPUState *env, target_ulong val_to_write, target_ul
         env->menvcfgh = val_to_write;
         break;
     case CSR_MSECCFG:
+        if (!riscv_has_additional_ext(env, RISCV_FEATURE_SMEPMP)) {
+            goto unhandled_csr_write;
+        }
+        tlib_log(LOG_LEVEL_WARNING, "Behavior of CSR_MSECCFG is currently unimplemented, and writing will have no effect");
         env->mseccfg = val_to_write;
         break;
     case CSR_MSECCFGH:
+        if (!riscv_has_additional_ext(env, RISCV_FEATURE_SMEPMP)) {
+            goto unhandled_csr_write;
+        }
         env->mseccfgh = val_to_write;
         break;
     default:
+unhandled_csr_write:
         warn_nonexistent_csr_write(csrno, val_to_write);
         helper_raise_illegal_instruction(env);
     }
@@ -881,8 +889,14 @@ static inline target_ulong csr_read_helper(CPUState *env, target_ulong csrno)
     case CSR_MENVCFGH:
         return env->menvcfgh;
     case CSR_MSECCFG:
+        if (!riscv_has_additional_ext(env, RISCV_FEATURE_SMEPMP)) {
+            goto unhandled_csr_read;
+        }
         return env->mseccfg;
     case CSR_MSECCFGH:
+        if (!riscv_has_additional_ext(env, RISCV_FEATURE_SMEPMP)) {
+            goto unhandled_csr_read;
+        }
         return env->mseccfgh;
     case CSR_TSELECT:
         return 0u;
@@ -891,6 +905,7 @@ static inline target_ulong csr_read_helper(CPUState *env, target_ulong csrno)
     case CSR_TDATA2:
         return 0u;
     default:
+unhandled_csr_read:
         /* used by e.g. MTIME read */
         warn_nonexistent_csr_read(csrno);
         helper_raise_illegal_instruction(env);

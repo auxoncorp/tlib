@@ -81,6 +81,7 @@ typedef struct instruction_extensions_t {
     uint8_t enable_Zicsr;
     uint8_t enable_Zifencei;
     uint8_t enable_Zfh;
+    uint8_t enable_Smepmp;
 } instruction_extensions_t;
 
 typedef struct CPUState CPUState;
@@ -327,6 +328,7 @@ enum riscv_additional_features {
     RISCV_FEATURE_ZICSR = ((target_ulong)5 << RISCV_ADDITIONAL_FEATURE_OFFSET),
     RISCV_FEATURE_ZIFENCEI = ((target_ulong)6 << RISCV_ADDITIONAL_FEATURE_OFFSET),
     RISCV_FEATURE_ZFH = ((target_ulong)7 << RISCV_ADDITIONAL_FEATURE_OFFSET),
+    RISCV_FEATURE_SMEPMP = ((target_ulong)8 << RISCV_ADDITIONAL_FEATURE_OFFSET),
 };
 
 enum privilege_architecture {
@@ -371,6 +373,8 @@ static inline int riscv_has_additional_ext(CPUState *env, target_ulong ext)
         return env->instruction_extensions.enable_Zifencei;
     case RISCV_FEATURE_ZFH:
         return env->instruction_extensions.enable_Zfh;
+    case RISCV_FEATURE_SMEPMP:
+        return env->instruction_extensions.enable_Smepmp;
     default:
         return 0;
     }

@@ -298,7 +298,11 @@ int pmp_get_access(CPUState *env, target_ulong addr, target_ulong size, int acce
 
     /* Short cut if no rules */
     if (0 == pmp_get_num_rules(env)) {
-        return PMP_READ | PMP_WRITE | PMP_EXEC;
+        if (priv == PRV_M) {
+            return PMP_READ | PMP_WRITE | PMP_EXEC;
+        } else {
+            return riscv_has_additional_ext(env, RISCV_FEATURE_SMEPMP) ? 0 : PMP_READ | PMP_WRITE | PMP_EXEC;
+        }
     }
 
     /* 1.10 draft priv spec states there is an implicit order
