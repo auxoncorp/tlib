@@ -382,21 +382,20 @@ inline void csr_write_helper(CPUState *env, target_ulong val_to_write, target_ul
         break;
     case CSR_MSTATUS: {
         target_ulong mstatus = env->mstatus;
-        target_ulong mask = 0;
+        target_ulong mask = MSTATUS_MIE | MSTATUS_MPIE | MSTATUS_FS | MSTATUS_MPRV | MSTATUS_MPP | MSTATUS_MXR | MSTATUS_VS;
+        if (riscv_has_ext(env, RISCV_FEATURE_RVS)) {
+            mask |= MSTATUS_SIE | MSTATUS_SPIE | MSTATUS_SUM | MSTATUS_SPP;
+        }
+
         if (env->privilege_architecture < RISCV_PRIV1_10) {
             if ((val_to_write ^ mstatus) & (MSTATUS_MXR | MSTATUS_MPP | MSTATUS_MPRV | MSTATUS_SUM | MSTATUS_VM)) {
                 tlb_flush(env, 1, true);
             }
-            mask = MSTATUS_SIE | MSTATUS_SPIE | MSTATUS_MIE | MSTATUS_MPIE | MSTATUS_SPP | MSTATUS_FS | MSTATUS_MPRV |
-                   MSTATUS_SUM | MSTATUS_MPP | MSTATUS_MXR | MSTATUS_VS |
-                   (validate_vm(env, get_field(val_to_write, MSTATUS_VM)) ? MSTATUS_VM : 0);
-        }
-        if (env->privilege_architecture >= RISCV_PRIV1_10) {
+            mask |= validate_vm(env, get_field(val_to_write, MSTATUS_VM)) ? MSTATUS_VM : 0;
+        } else {
             if ((val_to_write ^ mstatus) & (MSTATUS_MXR | MSTATUS_MPP | MSTATUS_MPRV | MSTATUS_SUM)) {
                 tlb_flush(env, 1, true);
             }
-            mask = MSTATUS_SIE | MSTATUS_SPIE | MSTATUS_MIE | MSTATUS_MPIE | MSTATUS_SPP | MSTATUS_FS | MSTATUS_MPRV |
-                   MSTATUS_SUM | MSTATUS_MPP | MSTATUS_MXR | MSTATUS_VS;
         }
 #ifdef TARGET_RISCV64
         mask |= MSTATUS_UXL | MSTATUS_SXL;
