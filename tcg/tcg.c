@@ -220,7 +220,6 @@ static void tcg_pool_free(TCGContext *s)
     }
 }
 
-static uint8_t code_gen_prologue[1024] code_gen_section;
 static TCGContext ctx;
 static TCGArg gen_opparam_buf[OPPARAM_BUF_SIZE];
 static uint16_t gen_opc_buf[OPC_BUF_SIZE];
@@ -232,7 +231,9 @@ void tcg_attach(tcg_t *c)
 {
     tcg = c;
     tcg->ctx = &ctx;
-    tcg->code_gen_prologue = code_gen_prologue;
+    // code_gen_prologue get set by code_gen_alloc
+    // since that has not happened yet, set it to null in the meantime
+    tcg->code_gen_prologue = NULL;
     tcg->gen_opparam_buf = gen_opparam_buf;
     tcg->gen_opc_buf = gen_opc_buf;
     tcg->gen_insn_end_off = gen_insn_end_off;

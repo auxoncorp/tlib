@@ -122,21 +122,6 @@ static void map_exec(void *addr, long size)
     temp++;
 
 }
-#else
-static void map_exec(void *addr, long size)
-{
-    uintptr_t start, end, page_size;
-
-    page_size = getpagesize();
-    start = (uintptr_t)addr;
-    start &= ~(page_size - 1);
-
-    end = (uintptr_t)addr + size;
-    end += page_size - 1;
-    end &= ~(page_size - 1);
-
-    mprotect((void *)start, end - start, PROT_READ | PROT_WRITE | PROT_EXEC);
-}
 #endif
 
 static void page_init(void)
@@ -352,9 +337,11 @@ static void code_gen_alloc(bool retry)
     if (code_gen_buffer_size > translation_cache_size_max) {
         code_gen_buffer_size = translation_cache_size_max;
     }
+    // Add the extra space needed for the prologue
+    code_gen_buffer_size += TCG_PROLOGUE_SIZE;
     /* The code gen buffer location may have constraints depending on
        the host cpu and OS */
-#if defined(__linux__)
+#if defined(__linux__) || defined(__APPLE__)
     {
         int flags;
         void *start = NULL;
@@ -378,10 +365,15 @@ static void code_gen_alloc(bool retry)
     }
     map_exec(code_gen_buffer, code_gen_buffer_size);
 #endif
-    map_exec(tcg->code_gen_prologue, 1024);
+    code_gen_buffer_size -= TCG_PROLOGUE_SIZE;
+    // There is now an extra 1024 bytes avaible at the end of the block
     code_gen_buffer_max_size = code_gen_buffer_size - TCG_MAX_CODE_SIZE - TCG_MAX_SEARCH_SIZE;
     code_gen_max_blocks = code_gen_buffer_size / CODE_GEN_AVG_BLOCK_SIZE;
     tbs = tlib_malloc(code_gen_max_blocks * sizeof(TranslationBlock));
+
+    // Generate the prologue since the space for it has now been allocated
+    tcg->code_gen_prologue = code_gen_buffer + code_gen_buffer_size;
+    tcg_prologue_init();
 }
 
 static void code_gen_expand()
@@ -400,15 +392,16 @@ static void code_gen_expand()
     code_gen_buffer_size *= 2;
     code_gen_alloc(true);
 
+
     code_gen_ptr = code_gen_buffer;
     return;
 }
 
 void code_gen_free(void)
 {
-#if defined(__linux__)
+#if defined(__linux__) || defined(__APPLE__)
     int retval;
-    retval = munmap(code_gen_buffer, code_gen_buffer_size);
+    retval = munmap(code_gen_buffer, code_gen_buffer_size + TCG_PROLOGUE_SIZE);
     if (retval == -1) {
         tlib_abort("Could not free dynamic translator buffer\n");
     }
@@ -430,7 +423,6 @@ void cpu_exec_init_all()
     page_init();
     /* There's no guest base to take into account, so go ahead and
        initialize the prologue now.  */
-    tcg_prologue_init();
     cpu_env = tcg_global_reg_new_ptr(TCG_AREG0, "env");
 }
 

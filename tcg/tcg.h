@@ -474,6 +474,9 @@ typedef struct TCGHelperInfo {
 
 typedef struct TCGContext TCGContext;
 
+// Size in bytes of the tcg prologue, put at the end of the code_gen_buffer
+#define TCG_PROLOGUE_SIZE 1024
+
 struct TCGContext {
     uint8_t *pool_cur, *pool_end;
     TCGPool *pool_first, *pool_current;
@@ -524,22 +527,6 @@ extern TCGArg *gen_opparam_ptr;
 void *tcg_malloc_internal(TCGContext *s, int size);
 void tcg_pool_reset(TCGContext *s);
 void tcg_pool_delete(TCGContext *s);
-
-#if defined(__arm__)
-/* The prologue must be reachable with a direct jump. ARM and Sparc64
-   have limited branch ranges (possibly also PPC) so place it in a
-   section close to code segment. */
-#define code_gen_section                                \
-    __attribute__((__section__(".gen_code")))           \
-    __attribute__((aligned (32)))
-#elif defined(_WIN32)
-/* Maximum alignment for Win32 is 16. */
-#define code_gen_section                                \
-    __attribute__((aligned (16)))
-#else
-#define code_gen_section                                \
-    __attribute__((aligned (32)))
-#endif
 
 #include "../include/disas_context_base.h"
 
