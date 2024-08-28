@@ -592,8 +592,10 @@ inline void csr_write_helper(CPUState *env, target_ulong val_to_write, target_ul
         if (!(val_to_write & RISCV_FEATURE_RVF)) {
             val_to_write &= ~RISCV_FEATURE_RVD;
         }
-
-        env->misa = (val_to_write & env->misa_mask) | (env->misa & ~env->misa_mask);
+        // We don't allow to modify User or Supervisor mode with MISA
+        // as per "3.1.1 Machine ISA Register" Priviledged ISA version 1.12
+        val_to_write |= (RISCV_FEATURE_RVS | RISCV_FEATURE_RVU) & env->misa_mask;
+        env->misa = val_to_write & env->misa_mask;
         break;
     }
     case CSR_TSELECT:
