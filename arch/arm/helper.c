@@ -1563,6 +1563,7 @@ static int get_phys_addr_mpu(CPUState *env, uint32_t address, int access_type, i
     uint32_t size;
     uint32_t mask;
     uint32_t perms;
+    bool page_contains_mpu_region = false;
 
     *phys_ptr = address;
     *prot = 0;
@@ -1586,6 +1587,10 @@ static int get_phys_addr_mpu(CPUState *env, uint32_t address, int access_type, i
 
         base = env->cp15.c6_base_address[n];
         mask = (1ull << size) - 1;
+
+        if ((address & TARGET_PAGE_MASK) == (base & TARGET_PAGE_MASK)) {
+            page_contains_mpu_region = true;
+        }
 
         if (base & mask) {
             /* Misaligned base addr to region */
@@ -1616,16 +1621,28 @@ static int get_phys_addr_mpu(CPUState *env, uint32_t address, int access_type, i
     }
 
     if (n < 0) { // background fault
+        int background_result;
         if (arm_feature(env, ARM_FEATURE_PMSA)) {
             if (is_user || !(env->cp15.c1_sys & (1 << 17 /* BR, Background Region */))) {
-                return MPU_BACKGROUND_FAULT;
+                background_result = MPU_BACKGROUND_FAULT;
+            } else {
+                background_result = pmsav7_check_default_mapping(address, prot, access_type);
             }
-            return pmsav7_check_default_mapping(address, prot, access_type);
+        } else if (!is_user) {
+            background_result = cortexm_check_default_mapping(address, prot, access_type);
+        } else {
+            background_result = TRANSLATE_FAIL;
         }
-        if (!is_user) {
-            return cortexm_check_default_mapping(address, prot, access_type);
+
+        if (background_result == TRANSLATE_SUCCESS && page_contains_mpu_region) {
+            /* Background pages cannot be stored in tlb if those pages contain any MPU regions
+            * as access checks will not be performed for pages that are present in TLB.
+            * Setting page size != TARGET_PAGE_SIZE effectively makes the tlb page entry one-shot:
+            * Thanks to this every access to this page will be verified against MPU.
+            */
+            *page_size = 0;
         }
-        return TRANSLATE_FAIL;
+        return background_result;
     }
 
     perms = (env->cp15.c6_access_control[n] & MPU_PERMISSION_FIELD_MASK) >> 8;
