@@ -352,21 +352,23 @@ static void code_gen_alloc(bool retry)
         start = (void *)0x01000000UL;
 #endif
         code_gen_buffer = mmap(start, code_gen_buffer_size, PROT_WRITE | PROT_READ | PROT_EXEC, flags, -1, 0);
-        // let's give some feedback about what size was actually used
-        tlib_on_translation_cache_size_change(code_gen_buffer_size);
         if (code_gen_buffer == MAP_FAILED) {
             code_gen_alloc_retry(retry);
+            return;
         }
     }
 #else
     code_gen_buffer = tlib_malloc(code_gen_buffer_size);
     if (code_gen_buffer == NULL) {
         code_gen_alloc_retry(retry);
+        return;
     }
     map_exec(code_gen_buffer, code_gen_buffer_size);
 #endif
+    // There is now an extra TCG_PROLOGUE_SIZE amount bytes avaible at the end of the block
     code_gen_buffer_size -= TCG_PROLOGUE_SIZE;
-    // There is now an extra 1024 bytes avaible at the end of the block
+    // Notify that the translation cache has changed
+    tlib_on_translation_cache_size_change(code_gen_buffer_size);
     code_gen_buffer_max_size = code_gen_buffer_size - TCG_MAX_CODE_SIZE - TCG_MAX_SEARCH_SIZE;
     code_gen_max_blocks = code_gen_buffer_size / CODE_GEN_AVG_BLOCK_SIZE;
     tbs = tlib_malloc(code_gen_max_blocks * sizeof(TranslationBlock));
@@ -391,7 +393,6 @@ static void code_gen_expand()
     /* After increasing the size, allocate the buffer again. Note, that it might end in a different location in memory */
     code_gen_buffer_size *= 2;
     code_gen_alloc(true);
-
 
     code_gen_ptr = code_gen_buffer;
     return;
@@ -421,8 +422,6 @@ void cpu_exec_init_all()
     code_gen_alloc(false);
     code_gen_ptr = code_gen_buffer;
     page_init();
-    /* There's no guest base to take into account, so go ahead and
-       initialize the prologue now.  */
     cpu_env = tcg_global_reg_new_ptr(TCG_AREG0, "env");
 }
 
