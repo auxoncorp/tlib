@@ -78,6 +78,10 @@ static inline int tcg_target_const_match(tcg_target_long val, const TCGArgConstr
     }
 }
 
+// Defines to match reloc names and ids from elf standard
+#define R_AARCH64_JUMP26	282
+#define R_AARCH64_CONDBR19	280
+#define R_AARCH64_PREL32	261
 static void reloc_pc32(void *code_ptr, tcg_target_long target)
 {
     // code_ptr should be set to target - current PC
@@ -94,10 +98,6 @@ static void reloc_condbr_19(void *code_ptr, tcg_target_long target, int cond)
     *(uint32_t *)code_ptr |= ((offset & 0x7FFFF) << 5) | cond;
 
 }
-// Defines to match reloc names and ids from elf standard
-#define R_AARCH64_JUMP26	282
-#define R_AARCH64_CONDBR19	280
-#define R_AARCH64_PREL32	261
 static void reloc_jump26(void *code_ptr, tcg_target_long target)
 {
     // code_ptr should have bits [25, 0] set to target - current PC
@@ -146,12 +146,14 @@ static inline void tcg_out_ret(TCGContext *s, int reg)
 static inline void tcg_out_b_noaddr(TCGContext *s)
 {
     // This sets up a unconditional branch to an adress that will be emited later
-    // by either translation block linkng or a reloc
+    // by either translation block linking or a reloc
     s->code_ptr += 3;
     // Unconditional branch opcode
     tcg_out8(s, 0b000101 << 2);
 }
 
+// Value used for addend when nothing extra is needed by the reloc
+#define TCG_UNUSED_CONSTANT 31337
 static inline void tcg_out_goto_label(TCGContext *s, int cond, int label_index)
 {
     TCGLabel *l = &s->labels[label_index];
@@ -174,11 +176,11 @@ static inline void tcg_out_goto_label(TCGContext *s, int cond, int label_index)
         }
     } else {
         // Label does not have the address so we need a reloc
-        // This is mostly just taken from the arm32 target, I do not fully understand it
-        // The reloc type is just the one i found in elf.h that seemed most appropriate
+        // reloc names are based on the ones from the elf format
+        // but might not have exacly the same semantics, see patch_reloc() for details
         if (cond == COND_AL) {
             // Unconditional branch
-            tcg_out_reloc(s, s->code_ptr, R_AARCH64_JUMP26, label_index, 31337);  // Unused constant
+            tcg_out_reloc(s, s->code_ptr, R_AARCH64_JUMP26, label_index, TCG_UNUSED_CONSTANT);
             tcg_out_b_noaddr(s);
         } else {
             tcg_out_reloc(s, s->code_ptr, R_AARCH64_CONDBR19, label_index, cond); // Reloc needs to set the condition bits correctly
@@ -206,13 +208,15 @@ static inline void tcg_out_calli(TCGContext *s, tcg_target_ulong addr)
 // Helper function to emit STP, store pair instructions with offset adressing mode (i.e no changing the base)
 static inline void tcg_out_stp(TCGContext *s, int reg1, int reg2, int reg_base, tcg_target_long offset)
 {
-    tcg_out32(s, 0xa9000000 | (offset << 15) | (reg2 << 10) | (reg_base << 5) | (reg1 << 0));
+    // Offset is 7 bits
+    tcg_out32(s, 0xa9000000 | ((offset & 0x7f) << 15) | (reg2 << 10) | (reg_base << 5) | (reg1 << 0));
 }
 
 // Helper function to emit LDP, load pair instructions with offset adressing mode (i.e no changing the base)
 static inline void tcg_out_ldp(TCGContext *s, int reg1, int reg2, int reg_base, tcg_target_long offset)
 {
-    tcg_out32(s, 0xa9400000 | (offset << 15) | (reg2 << 10) | (reg_base << 5) | (reg1 << 0));
+    // Offset is 7 bits
+    tcg_out32(s, 0xa9400000 | ((offset & 0x7f) << 15) | (reg2 << 10) | (reg_base << 5) | (reg1 << 0));
 }
 
 static inline void tcg_out_mov(TCGContext *s, TCGType type, TCGReg ret, TCGReg arg)
@@ -388,7 +392,7 @@ static inline void tcg_out_cmpi(TCGContext *s, int reg, tcg_target_long imm)
     tcg_out_movi(s, 0, TCG_TMP_REG, imm);
     tcg_out_cmp(s, reg, TCG_TMP_REG);
 }
-// Helper for qemu's conditional branch. branch if arg1 COND arg2 == true
+// Helper for tcg's conditional branch. branch if arg1 COND arg2 == true
 static inline void tcg_out_br_cond(TCGContext *s, int arg1, int tcg_cond, int arg2, int addr)
 {
     tcg_out_cmp(s, arg1, arg2);
@@ -406,7 +410,7 @@ static uint8_t *tb_ret_addr;
 
 static inline void tcg_out_op(TCGContext *s, TCGOpcode opc, const TCGArg *args, const int *const_args)
 {
-    // args contains actual actuments, const_args holds flags indicating if the argument is a constant
+    // args contains actual arguments, const_args holds flags indicating if the argument is a constant
     // const_args[n] == true => args[n] is a constant, otherwise it is a register
     switch (opc) {
     case INDEX_op_exit_tb:
