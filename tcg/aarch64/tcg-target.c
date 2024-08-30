@@ -1,5 +1,29 @@
-#include "tcg-target.h" //Not actually needed here, but keeps the editor happy
+/*
+ * Tiny Code Generator for tlib
+ *
+ * Copyright (c) 2024 Antmicro
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+
 #include "additional.h"
+#include "tcg-target.h" //Only needed to help vscode find symbols
 
 // Order registers get picked in
 static const int tcg_target_reg_alloc_order[] = {
@@ -97,6 +121,7 @@ static void reloc_pc32(void *code_ptr, tcg_target_long target)
     uint32_t offset = target - ((tcg_target_long)code_ptr + 8);
     *(uint32_t *)code_ptr = offset;
 }
+// Patch the conditional branch instruction, address is 19-bits long
 static void reloc_condbr_19(void *code_ptr, tcg_target_long target, int cond)
 {
     // code_ptr should have bits [23, 5] set to target - current PC, 4 to zero and [3, 0] to cond
@@ -108,6 +133,7 @@ static void reloc_condbr_19(void *code_ptr, tcg_target_long target, int cond)
     *(uint32_t *)code_ptr &= (~(1 << 4));
 
 }
+// Path the unconditional branch instruction, address is 26-bits long
 static void reloc_jump26(void *code_ptr, tcg_target_long target)
 {
     // code_ptr should have bits [25, 0] set to target - current PC
@@ -215,14 +241,14 @@ static inline void tcg_out_calli(TCGContext *s, tcg_target_ulong addr)
         tcg_out_bl(s, offset);
     }
 }
-// Helper function to emit STP, store pair instructions with offset adressing mode (i.e no changing the base)
+// Helper function to emit STP, store pair instructions with offset adressing mode (i.e no changing the base register)
 static inline void tcg_out_stp(TCGContext *s, int reg1, int reg2, int reg_base, tcg_target_long offset)
 {
     // Offset is 7 bits
     tcg_out32(s, 0xa9000000 | ((offset & 0x7f) << 15) | (reg2 << 10) | (reg_base << 5) | (reg1 << 0));
 }
 
-// Helper function to emit LDP, load pair instructions with offset adressing mode (i.e no changing the base)
+// Helper function to emit LDP, load pair instructions with offset adressing mode (i.e no changing the base register)
 static inline void tcg_out_ldp(TCGContext *s, int reg1, int reg2, int reg_base, tcg_target_long offset)
 {
     // Offset is 7 bits
@@ -318,10 +344,7 @@ static inline void tcg_out_st(TCGContext *s, TCGType type, TCGReg arg, TCGReg ar
 
 static inline void tcg_out_movi(TCGContext *s, TCGType type, TCGReg ret, tcg_target_long arg)
 {
-    // Since aarch64 can only load 16-bit immediate,
-    // we need to have logic to split it into an MOVZ, and an apropriate number of MOVK instructions
-
-    // For the mvp I just always output 4 instructions, which is really only needed for 64-bit immediates
+    // TODO: Optimize this in case the immidiate fits in less than 64-bits
     tcg_out_movi64(s, ret, arg);
 }
 
@@ -697,7 +720,8 @@ static void tcg_target_init(TCGContext *s)
     tcg_regset_set_reg(s->reserved_regs, TCG_REG_PC);         // PC
 
     tcg_add_target_add_op_defs(arm_op_defs);
-    tcg_set_frame(s, TCG_AREG0, /*offsetof(CPUState, temp_buf)*/ temp_buf_offset, CPU_TEMP_BUF_NLONGS * sizeof(long));
+    // temp_buf_offset is set by init_tcg(), here used to find the start of the tcg frame
+    tcg_set_frame(s, TCG_AREG0, temp_buf_offset, CPU_TEMP_BUF_NLONGS * sizeof(long));
 }
 
 static void tcg_target_qemu_prologue(TCGContext *s)

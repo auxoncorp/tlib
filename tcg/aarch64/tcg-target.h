@@ -1,11 +1,34 @@
+/*
+ * Tiny Code Generator for tlib
+ *
+ * Copyright (c) 2024 Antmicro
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
 #pragma once
-
-// Taken from other targets, apparently needed for the i386 guest
-#define TCG_TARGET_DEFAULT_MO 0
 
 // 33 total registers, 31 general purpose
 #define TCG_TARGET_NB_REGS 33
 #define TCG_TARGET_GP_REGS 31
+
+// Taken from arm32 target, needed for i386 guest
+#define TCG_TARGET_DEFAULT_MO 0
 
 typedef enum {
     TCG_REG_R0 = 0,
@@ -104,12 +127,11 @@ typedef enum {
 
 // Comments in other targets says this must be synced with cpu-defs.h, but unclear what
 // ascpect needs to be syncronized
-// The 32-bit arm target uses a high numbered callee-saved register, so I'm picking
+// The 32-bit arm target uses a high numbered callee-saved register, so we're picking
 // a similar one
 enum {
     TCG_AREG0 = TCG_REG_R27,
 };
-
 // Taken from arm32 target, unclear if it is needed on aarch64
 static inline void flush_icache_range(unsigned long start, unsigned long stop)
 {
