@@ -5,6 +5,7 @@
 
 // 33 total registers, 31 general purpose
 #define TCG_TARGET_NB_REGS 33
+#define TCG_TARGET_GP_REGS 31
 
 typedef enum {
     TCG_REG_R0 = 0,

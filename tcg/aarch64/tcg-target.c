@@ -6,7 +6,6 @@ static const int tcg_target_reg_alloc_order[] = {
     TCG_REG_R8, TCG_REG_R9, TCG_REG_R10, TCG_REG_R11, TCG_REG_R12, TCG_REG_R13, TCG_REG_R14, TCG_REG_R15, TCG_REG_R16,
     TCG_REG_R17, TCG_REG_R18, TCG_REG_R19, TCG_REG_R20, TCG_REG_R0, TCG_REG_R1, TCG_REG_R2, TCG_REG_R3, TCG_REG_R4, TCG_REG_R5,
     TCG_REG_R6, TCG_REG_R7, TCG_REG_R21, TCG_REG_R22, TCG_REG_R23, TCG_REG_R24, TCG_REG_R25, TCG_REG_R26, TCG_REG_R27,
-    TCG_REG_R28, TCG_REG_R29, TCG_REG_R30, // LR
 };
 
 // Registers that can be used for input functions arguments
@@ -47,6 +46,9 @@ static const uint8_t tcg_cond_to_arm_cond[] = {
     [TCG_COND_LTU] = COND_CC, [TCG_COND_GEU] = COND_CS, [TCG_COND_LEU] = COND_LS, [TCG_COND_GTU] = COND_HI,
 };
 
+// Tells tcg what registers can be used for a argument with a certain flag
+// Flag are set in arm_op_defs later in this file, and are used if some
+// registers can not be used with a certain instruction
 static int target_parse_constraint(TCGArgConstraint *ct, const char **pct_str)
 {
     // This is just taken from the arm target, might want to refactor to something cleaner
@@ -54,8 +56,9 @@ static int target_parse_constraint(TCGArgConstraint *ct, const char **pct_str)
     ct_str = *pct_str;
     switch (ct_str[0]) {
     case 'r':
+        // Any general purpose register
         ct->ct |= TCG_CT_REG;
-        tcg_regset_set32(ct->u.regs, 0, (1 << 30) - 1);
+        tcg_regset_set(ct->u.regs, (1L << TCG_TARGET_GP_REGS) - 1);
         break;
     default:
         tcg_abortf("Constraint %c not implemented", ct_str[0]);
@@ -66,12 +69,17 @@ static int target_parse_constraint(TCGArgConstraint *ct, const char **pct_str)
 
     return 0;
 }
+// Tells tcg if a constant `val` can be used with the set arg constraints
+// Can be used to check if tcg should put a value as an immediate or
+// place it in a register before host code is generated,
+// allowing it to generate better code
 static inline int tcg_target_const_match(tcg_target_long val, const TCGArgConstraint *arg_ct)
 {
-    // Adapted from arm32 target
+    // TODO: Add constraints and checks for instructions to cut down on generated movi instructions
     int ct;
     ct = arg_ct->ct;
     if (ct & TCG_CT_CONST) {
+        // Register sized constant
         return 1;
     } else {
         return 0;
@@ -96,6 +104,8 @@ static void reloc_condbr_19(void *code_ptr, tcg_target_long target, int cond)
     uint32_t offset = target - ((tcg_target_long)code_ptr + 8);
     // Mask out 19 bits from the offset
     *(uint32_t *)code_ptr |= ((offset & 0x7FFFF) << 5) | cond;
+    // set bit 4 to zero
+    *(uint32_t *)code_ptr &= (~(1 << 4));
 
 }
 static void reloc_jump26(void *code_ptr, tcg_target_long target)
@@ -196,7 +206,7 @@ static inline void tcg_out_calli(TCGContext *s, tcg_target_ulong addr)
 {
     // Offset is only 26-bits, so we can't jump further than that without storing it in a reg first
     int offset = addr - (tcg_target_long)s->code_ptr;
-    if (abs(offset) > 0xfffff) {
+    if (abs(offset) > 0x3ffffff) {
         // Jump is too long, store the address in a register and then branch and link
         tcg_out_movi(s, 0, TCG_TMP_REG, addr);
         tcg_out_blr(s, TCG_TMP_REG);
