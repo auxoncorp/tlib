@@ -362,7 +362,7 @@ int cpu_exec(CPUState *env)
                     if (process_interrupt(interrupt_request, env)) {
                         next_tb = 0;
                     }
-                    if (env->exception_index == EXCP_WFI) {
+                    if (env->exception_index == EXCP_DEBUG || env->exception_index == EXCP_WFI) {
                         cpu_loop_exit_without_hook(env);
                     }
                     env->exception_index = -1;
