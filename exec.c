@@ -29,6 +29,7 @@
 #include "cpu.h"
 #include "tcg.h"
 #include "osdep.h"
+#include "tlib-alloc.h"
 
 #define SMC_BITMAP_USE_THRESHOLD 10
 
@@ -41,8 +42,8 @@ TranslationBlock *tb_phys_hash[CODE_GEN_PHYS_HASH_SIZE];
 static int nb_tbs;
 /* any access to the tbs or the page table must use this lock */
 
-static uint8_t *code_gen_buffer;
-static uint64_t code_gen_buffer_size;
+extern uint8_t *code_gen_buffer;
+extern uint64_t code_gen_buffer_size;
 /* threshold to flush the translated code buffer */
 static uint64_t code_gen_buffer_max_size;
 static uint8_t *code_gen_ptr;
@@ -113,16 +114,6 @@ static void *l1_phys_map[P_L1_SIZE];
 static int tlb_flush_count;
 static int tb_flush_count;
 static int tb_phys_invalidate_count;
-
-#ifdef _WIN32
-static void map_exec(void *addr, long size)
-{
-    DWORD old_protect;
-    int temp = VirtualProtect(addr, size, PAGE_EXECUTE_READWRITE, &old_protect);
-    temp++;
-
-}
-#endif
 
 static void page_init(void)
 {
@@ -314,21 +305,8 @@ static void tlb_unprotect_code_phys(CPUState *env, ram_addr_t ram_addr, target_u
 
 extern uint64_t translation_cache_size_min;
 extern uint64_t translation_cache_size_max;
-static void code_gen_alloc(bool retry);
 
-static inline void code_gen_alloc_retry(bool retry)
-{
-    if (!retry) {
-        tlib_abort("Could not allocate dynamic translator buffer\n");
-    } else {
-        /* Try once again to allocate a smaller buffer, if we failed before.
-           If it still doesn't succeed, we will fail hard */
-        code_gen_buffer_size /= 2;
-        code_gen_alloc(false);
-    }
-}
-
-static void code_gen_alloc(bool retry)
+static void code_gen_alloc()
 {
     if (code_gen_buffer_size < translation_cache_size_min) {
         code_gen_buffer_size = translation_cache_size_min;
@@ -339,32 +317,11 @@ static void code_gen_alloc(bool retry)
     }
     // Add the extra space needed for the prologue
     code_gen_buffer_size += TCG_PROLOGUE_SIZE;
-    /* The code gen buffer location may have constraints depending on
-       the host cpu and OS */
-#if defined(__linux__) || defined(__APPLE__)
-    {
-        int flags;
-        void *start = NULL;
 
-        flags = MAP_PRIVATE | MAP_ANONYMOUS;
-#if defined(__arm__)
-        flags |= MAP_FIXED;
-        start = (void *)0x01000000UL;
-#endif
-        code_gen_buffer = mmap(start, code_gen_buffer_size, PROT_WRITE | PROT_READ | PROT_EXEC, flags, -1, 0);
-        if (code_gen_buffer == MAP_FAILED) {
-            code_gen_alloc_retry(retry);
-            return;
-        }
+    if (!alloc_code_gen_buf(code_gen_buffer_size)) {
+        tlib_abort("Failed to create code_gen_buffer");
     }
-#else
-    code_gen_buffer = tlib_malloc(code_gen_buffer_size);
-    if (code_gen_buffer == NULL) {
-        code_gen_alloc_retry(retry);
-        return;
-    }
-    map_exec(code_gen_buffer, code_gen_buffer_size);
-#endif
+
     // There is now an extra TCG_PROLOGUE_SIZE amount bytes avaible at the end of the block
     code_gen_buffer_size -= TCG_PROLOGUE_SIZE;
     // Notify that the translation cache has changed
@@ -392,7 +349,7 @@ static void code_gen_expand()
 
     /* After increasing the size, allocate the buffer again. Note, that it might end in a different location in memory */
     code_gen_buffer_size *= 2;
-    code_gen_alloc(true);
+    code_gen_alloc();
 
     code_gen_ptr = code_gen_buffer;
     return;
@@ -400,15 +357,7 @@ static void code_gen_expand()
 
 void code_gen_free(void)
 {
-#if defined(__linux__) || defined(__APPLE__)
-    int retval;
-    retval = munmap(code_gen_buffer, code_gen_buffer_size + TCG_PROLOGUE_SIZE);
-    if (retval == -1) {
-        tlib_abort("Could not free dynamic translator buffer\n");
-    }
-#else
-    tlib_free(code_gen_buffer);
-#endif
+    free_code_gen_buf();
     tlib_free(tbs);
 }
 
@@ -419,7 +368,7 @@ TCGv_ptr cpu_env;
 void cpu_exec_init_all()
 {
     tcg_context_init();
-    code_gen_alloc(false);
+    code_gen_alloc();
     code_gen_ptr = code_gen_buffer;
     page_init();
     cpu_env = tcg_global_reg_new_ptr(TCG_AREG0, "env");
