@@ -93,6 +93,55 @@ static inline DATA_TYPE glue(io_read, SUFFIX)(target_phys_addr_t physaddr, targe
     return res;
 }
 
+static inline int glue(try_cached_access, SUFFIX)(target_ulong addr, DATA_TYPE* res)
+{
+    if(likely(QTAILQ_EMPTY(&cpu->cached_address)) || (addr != cpu->previous_io_access_read_address))
+    {
+        cpu->io_access_count = 0;
+        return 0;
+    }
+
+    uint8_t crd_address_found = 0;
+    CachedRegiserDescriptor *crd;
+    if((cpu->last_crd != NULL) && (cpu->last_crd->address == addr))
+    {
+        crd_address_found = 1;
+        crd = cpu->last_crd;
+    }
+    else
+    {
+        QTAILQ_FOREACH(crd, &env->cached_address, entry)
+        {
+            if(crd->address == addr)
+            {
+                cpu->last_crd = crd;
+                crd_address_found = 1;
+                break;
+            }
+        }
+    }
+
+    if(!crd_address_found)
+    {
+        cpu->io_access_count = 0;
+        return 0;
+    }
+
+    cpu->io_access_count += 1;
+    if((crd->upper_access_count > 0) 
+        && (cpu->io_access_count == (crd->lower_access_count + crd->upper_access_count)))
+    {
+        cpu->io_access_count = 0;
+    }
+    if((cpu->io_access_count >= crd->lower_access_count)
+        && ((crd->upper_access_count == 0) || (cpu->io_access_count < (crd->lower_access_count + crd->upper_access_count))))
+    {
+        *res = cpu->previous_io_access_read_value;
+        return 1;
+    }
+    return 0;
+}
+
 /* handle all cases except unaligned access which span two pages */
 __attribute__((always_inline)) inline DATA_TYPE REGPARM glue(glue(glue(__ld, SUFFIX), _err), MMUSUFFIX)(target_ulong addr, int mmu_idx, int *err)
 {
@@ -135,7 +184,13 @@ redo:
             retaddr = GETPC();
             global_retaddr = retaddr;
             ioaddr = cpu->iotlb[mmu_idx][index];
-            res = glue(io_read, SUFFIX)(ioaddr, addr, retaddr);
+
+            if(!glue(try_cached_access, SUFFIX)(addr, &res)) {
+                res = glue(io_read, SUFFIX)(ioaddr, addr, retaddr);
+                cpu->previous_io_access_read_value = res;
+                cpu->previous_io_access_read_address = addr;
+            }
+
             if(unlikely(cpu->tlib_is_on_memory_access_enabled != 0))
             {
                 tlib_assert(sizeof(res) <= sizeof(uint64_t));

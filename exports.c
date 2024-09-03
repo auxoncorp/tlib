@@ -1035,3 +1035,10 @@ void tlib_after_load(void *env)
 }
 
 EXC_VOID_1(tlib_after_load, void *, env)
+
+void tlib_enable_read_cache(uint64_t access_address, uint64_t lower_access_count, uint64_t upper_access_count)
+{
+    configure_read_address_caching(access_address, lower_access_count, upper_access_count);
+}
+
+EXC_VOID_3(tlib_enable_read_cache, uint64_t, access_address, uint64_t, lower_access_count, uint64_t, upper_access_count)

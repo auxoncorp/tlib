@@ -390,6 +390,7 @@ void cpu_exec_init(CPUState *env)
 {
     cpu = env;
     QTAILQ_INIT(&cpu->breakpoints);
+    QTAILQ_INIT(&cpu->cached_address);
 }
 
 /* Allocate a new translation block. Flush the translation buffer if
@@ -1072,6 +1073,39 @@ int cpu_breakpoint_insert(CPUState *env, target_ulong pc, int flags, CPUBreakpoi
         *breakpoint = bp;
     }
     return 0;
+}
+
+void configure_read_address_caching(uint64_t address, uint64_t lower_address_count, uint64_t upper_address_count)
+{
+    if(lower_address_count == 0)
+    {
+        tlib_abort("Lower access count to address canot be zero!");
+    }
+    if((upper_address_count > 0) && (upper_address_count <= lower_address_count))
+    {
+        tlib_abort("Upper access count to address has to be bigger than lower access count!");
+    }
+
+    // first, check if the address is already configured
+    CachedRegiserDescriptor *crd;
+    QTAILQ_FOREACH(crd, &env->cached_address, entry)
+    {
+        if(crd->address == address)
+        {
+            crd->lower_access_count = lower_address_count;
+            crd->upper_access_count = upper_address_count;
+            return;
+        }
+    }
+
+    // if not, let's add it
+    crd = tlib_malloc(sizeof(*crd));
+
+    crd->address = address;
+    crd->lower_access_count = lower_address_count;
+    crd->upper_access_count = upper_address_count;
+
+    QTAILQ_INSERT_TAIL(&env->cached_address, crd, entry);
 }
 
 void interrupt_current_translation_block(CPUState *env, int exception_type)

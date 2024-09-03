@@ -135,6 +135,13 @@ typedef struct CPUBreakpoint {
     QTAILQ_ENTRY(CPUBreakpoint) entry;
 } CPUBreakpoint;
 
+typedef struct CachedRegiserDescriptor {
+    uint64_t address;
+    uint64_t lower_access_count;
+    uint64_t upper_access_count;
+    QTAILQ_ENTRY(CachedRegiserDescriptor) entry;
+} CachedRegiserDescriptor;
+
 #define MAX_OPCODE_COUNTERS 2048
 typedef struct opcode_counter_descriptor
 {
@@ -238,6 +245,7 @@ enum block_interrupt_cause {
     struct TranslationBlock *current_tb; /* currently executing TB  */        \
     CPU_COMMON_TLB                                                            \
     QTAILQ_HEAD(breakpoints_head, CPUBreakpoint) breakpoints;                 \
+    QTAILQ_HEAD(cached_address_head, CachedRegiserDescriptor) cached_address; \
     struct TranslationBlock *tb_jmp_cache[TB_JMP_CACHE_SIZE];                 \
     /* buffer for temporaries in the code generator */                        \
     long temp_buf[CPU_TEMP_BUF_NLONGS];                                       \
@@ -245,6 +253,10 @@ enum block_interrupt_cause {
     int32_t return_on_exception;                                              \
     bool guest_profiler_enabled;                                              \
                                                                               \
+    uint64_t io_access_count;                                                 \
+    uint64_t previous_io_access_read_value;                                   \
+    uint64_t previous_io_access_read_address;                                 \
+    struct CachedRegiserDescriptor *last_crd;
 
 #define RESET_OFFSET offsetof(CPUState, jmp_env)
 

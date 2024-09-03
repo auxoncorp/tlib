@@ -642,3 +642,5 @@ static inline uint64_t instructions_to_cycles(CPUState *env, uint64_t instructio
     double cycles_per_instruction = env->millicycles_per_instruction / 1000.0;
     return (uint64_t)(instructions * cycles_per_instruction);
 }
+
+void configure_read_address_caching(uint64_t address, uint64_t lower_address_count, uint64_t upper_address_count);
