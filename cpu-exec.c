@@ -19,6 +19,7 @@
 #include "cpu.h"
 #include "tcg.h"
 #include "atomic.h"
+#include "tlib-alloc.h"
 
 target_ulong virt_to_phys(target_ulong virtual, uint32_t access_type, uint32_t nofault)
 {
@@ -430,7 +431,7 @@ int cpu_exec(CPUState *env)
                 env->current_tb = tb;
                 asm volatile ("" ::: "memory");
                 if (likely(!env->exit_request)) {
-                    tc_ptr = tb->tc_ptr;
+                    tc_ptr = (uint8_t *) rw_ptr_to_rx(tb->tc_ptr);
                     /* execute the generated code */
                     next_tb = tcg_tb_exec(env, tc_ptr);
                     /* Flush the list after every unchained block */

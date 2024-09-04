@@ -42,7 +42,6 @@ TranslationBlock *tb_phys_hash[CODE_GEN_PHYS_HASH_SIZE];
 static int nb_tbs;
 /* any access to the tbs or the page table must use this lock */
 
-extern uint8_t *code_gen_buffer;
 extern uint64_t code_gen_buffer_size;
 /* threshold to flush the translated code buffer */
 static uint64_t code_gen_buffer_max_size;
@@ -331,8 +330,10 @@ static void code_gen_alloc()
     tbs = tlib_malloc(code_gen_max_blocks * sizeof(TranslationBlock));
 
     // Generate the prologue since the space for it has now been allocated
-    tcg->code_gen_prologue = code_gen_buffer + code_gen_buffer_size;
+    tcg->code_gen_prologue = tcg_rw_buffer + code_gen_buffer_size;
     tcg_prologue_init();
+    // Prologue is generated, point it to the rx view of the memory
+    tcg->code_gen_prologue = (uint8_t *) rw_ptr_to_rx(tcg->code_gen_prologue);
 }
 
 static void code_gen_expand()
@@ -351,7 +352,7 @@ static void code_gen_expand()
     code_gen_buffer_size *= 2;
     code_gen_alloc();
 
-    code_gen_ptr = code_gen_buffer;
+    code_gen_ptr = tcg_rw_buffer;
     return;
 }
 
@@ -369,7 +370,7 @@ void cpu_exec_init_all()
 {
     tcg_context_init();
     code_gen_alloc();
-    code_gen_ptr = code_gen_buffer;
+    code_gen_ptr = tcg_rw_buffer;
     page_init();
     cpu_env = tcg_global_reg_new_ptr(TCG_AREG0, "env");
 }
@@ -386,7 +387,7 @@ static TranslationBlock *tb_alloc(target_ulong pc)
 {
     TranslationBlock *tb;
 
-    if (nb_tbs >= code_gen_max_blocks || (code_gen_ptr - code_gen_buffer) >= code_gen_buffer_max_size) {
+    if (nb_tbs >= code_gen_max_blocks || (code_gen_ptr - tcg_rw_buffer) >= code_gen_buffer_max_size) {
         return NULL;
     }
     tb = &tbs[nb_tbs++];
@@ -452,7 +453,7 @@ static void page_flush_tb(void)
 /* XXX: tb_flush is currently not thread safe */
 void tb_flush(CPUState *env1)
 {
-    if ((uintptr_t)(code_gen_ptr - code_gen_buffer) > code_gen_buffer_size) {
+    if ((uintptr_t)(code_gen_ptr - tcg_rw_buffer) > code_gen_buffer_size) {
         cpu_abort(env1, "Internal error: code buffer overflow\n");
     }
 
@@ -461,7 +462,7 @@ void tb_flush(CPUState *env1)
     memset(tb_phys_hash, 0, CODE_GEN_PHYS_HASH_SIZE * sizeof (void *));
     page_flush_tb();
 
-    code_gen_ptr = code_gen_buffer;
+    code_gen_ptr = tcg_rw_buffer;
     /* XXX: flush processor icache at this point if cache flush is
        expensive */
     tb_flush_count++;
@@ -992,7 +993,7 @@ TranslationBlock *tb_find_pc(uintptr_t tc_ptr)
     if (nb_tbs <= 0) {
         return NULL;
     }
-    if (tc_ptr < (uintptr_t)code_gen_buffer || tc_ptr >= (uintptr_t)code_gen_ptr) {
+    if (tc_ptr < (uintptr_t)tcg_rw_buffer || tc_ptr >= (uintptr_t)code_gen_ptr) {
         return NULL;
     }
     /* binary search (cf Knuth) */

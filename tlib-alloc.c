@@ -19,45 +19,58 @@
 #include "infrastructure.h"
 #include "tlib-alloc.h"
 
-uint8_t *rw_buffer;
-uint8_t *rx_buffer;
-static uint64_t buffer_size;
+uint8_t *tcg_rw_buffer;
+uint8_t *tcg_rx_buffer;
 
-// old buffer to test the refactor
-uint8_t *code_gen_buffer;
 uint64_t code_gen_buffer_size;
 
-#if defined(__linux__)
-static int create_backing_fd() 
+intptr_t tcg_wx_diff;
+
+const void* rw_ptr_to_rx(void *ptr)
 {
-    return memfd_create("code_gen_buffer", 0);
+    if (ptr == NULL) {
+        // null pointers should not be changed
+        return ptr;
+    }
+    return ptr - tcg_wx_diff;
 }
-static void cleanup() // No extra cleanup needed on linux
+void* rx_ptr_to_rw(const void *ptr)
 {
+    if (ptr == NULL) {
+        // null pointers should not be changed
+        return (void*) ptr;
+    }
+    return (void*) (ptr + tcg_wx_diff);
 }
-#elif defined(__APPLE__)
-static int create_backing_fd() 
+
+#if defined(__linux__) || defined(__APPLE__)
+static bool alloc_code_gen_buf_unified(uint64_t size)
 {
-    // Since shm_open requires a unique name, use current pid to not step on other tlib instances
-    char pid_str[25];
-    int pid = getpid();
-    sprintf(pid_str, "/%i", pid); // POSIX standard recomends the name start with a slash
-    tlib_printf(LOG_LEVEL_WARNING, "pid_str: %s", pid_str);
-    return shm_open(pid_str, O_RDWR | O_CREAT | O_TRUNC, 0777);
+    // No write/execute splitting
+    int flags = MAP_ANON | MAP_PRIVATE;
+    void *rwx = mmap(NULL, size, PROT_READ | PROT_WRITE | PROT_EXEC, flags, -1, 0);
+    if (rwx == MAP_FAILED) {
+        tlib_printf(LOG_LEVEL_DEBUG, "Failed to mmap rwx buffer, error: %s", strerror(errno));
+        return false;
+    }
+    tcg_rx_buffer = tcg_rw_buffer = rwx;
+    code_gen_buffer_size = size;
+    tcg_wx_diff = 0;
+    return true;
 }
-static void cleanup()
+void free_code_gen_buf()
 {
-    char pid_str[25];
-    int pid = getpid();
-    sprintf(pid_str, "/%i", pid); // Get the buffer name same way as in create_backing_fd()
-    shm_unlink(pid_str);
+    // If not using split buffers the second one will fail, but this causes no issues
+    munmap(tcg_rw_buffer, code_gen_buffer_size);
+    munmap(tcg_rx_buffer, code_gen_buffer_size);
 }
 #endif
 
-#if defined(__linux__) || defined(__APPLE__)
-bool alloc_code_gen_buf(uint64_t size)
+#if defined(__linux__)
+static bool alloc_code_gen_buf_split(uint64_t size)
 {
-    int fd = create_backing_fd();
+    // Split writable and executable mapping
+    int fd = memfd_create("code_gen_buffer", 0);
     if (fd == -1) {
         tlib_abortf("Failed to create backing file for code_gen_buffer, error: %s", strerror(errno));
     }
@@ -73,7 +86,6 @@ bool alloc_code_gen_buf(uint64_t size)
     if (rw == MAP_FAILED) {
         tlib_printf(LOG_LEVEL_DEBUG, "Failed to mmap rw buffer, error: %s", strerror(errno));
         close(fd);
-        cleanup();
         return false;
     }
     void *rx = mmap(NULL, size, PROT_READ | PROT_EXEC, flags, fd, 0);
@@ -81,38 +93,20 @@ bool alloc_code_gen_buf(uint64_t size)
         tlib_printf(LOG_LEVEL_DEBUG, "Failed to mmap rx buffer, error: %s", strerror(errno));
         close(fd);
         munmap(rw, size);
-        cleanup();
-        return false;
-    }
-    void *rwx = mmap(NULL, size, PROT_READ | PROT_EXEC | PROT_WRITE, flags, fd, 0);
-    if (rwx == MAP_FAILED) {
-        tlib_printf(LOG_LEVEL_DEBUG, "Failed to mmap rwx buffer, error: %s", strerror(errno));
-        close(fd);
-        munmap(rw, size);
-        munmap(rx, size);
-        cleanup();
         return false;
     }
     // Mapping succeded, we can now close the fd safely
     close(fd);
-    rw_buffer = (uint8_t*) rw;
-    rx_buffer = (uint8_t*) rx;
-    code_gen_buffer = rwx;
-    buffer_size = size;
+    tcg_rw_buffer = (uint8_t*) rw;
+    tcg_rx_buffer = (uint8_t*) rx;
+    code_gen_buffer_size = size;
+    tcg_wx_diff = tcg_rw_buffer - tcg_rx_buffer;
     return true;
 }
-void free_code_gen_buf()
+#elif defined(__APPLE__)
+static bool alloc_code_gen_buf_split(uint64_t size)
 {
-    if (munmap(rw_buffer, buffer_size) == -1) {
-        tlib_abort("Failed to free rw_buffer");
-    }
-    if (munmap(rx_buffer, buffer_size) == -1) {
-        tlib_abort("Failed to free rx_buffer");
-    }
-    if (munmap(code_gen_buffer, buffer_size) == -1) {
-        tlib_abort("Failed to free rwx_buffer");
-    }
-    cleanup();
+    return false;
 }
 #elif defined(_WIN32)
 static void map_exec(void *addr, long size)
@@ -120,9 +114,14 @@ static void map_exec(void *addr, long size)
     DWORD old_protect;
     int temp = VirtualProtect(addr, size, PAGE_EXECUTE_READWRITE, &old_protect);
     temp++;
-
 }
-bool alloc_code_gen_buf(uint64_t size)
+static bool alloc_code_gen_buf_split(uint64_t size)
+{
+    // Split buffer not supported on Windows
+    tlib_abort("WX split buffer not supported on Windows");
+    return false;
+}
+static bool alloc_code_gen_buf_unified(uint64_t size)
 {
     // No seperate buffer views on windows for now
     uint8_t *buf = tlib_malloc(size);
@@ -130,14 +129,22 @@ bool alloc_code_gen_buf(uint64_t size)
         return false;
     }
     map_exec(buf, size);
-    rw_buffer = buf;
-    rx_buffer = buf;
-    code_gen_buffer = buf;
-    buffer_size = size;
+    tcg_rw_buffer = tcg_rx_buffer = buf;
+    code_gen_buffer_size = size;
+    tcg_wx_diff = 0;
     return true;
 }
 void free_code_gen_buf()
 {
-    tlib_free(rw_buffer);
+    tlib_free(tcg_rw_buffer);
 }
 #endif
+bool alloc_code_gen_buf(uint64_t size)
+{
+    bool split_wx = true;
+    if (split_wx) {
+        return alloc_code_gen_buf_split(size);
+    } else {
+        return alloc_code_gen_buf_unified(size);
+    }
+}
