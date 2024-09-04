@@ -284,15 +284,6 @@ static inline void gen_get_gpr(TCGv t, int reg_num)
     }
 }
 
-#if defined(TARGET_RISCV32)
-static inline uint32_t get_gpr_raw(int reg_num)
-#elif defined(TARGET_RISCV64)
-static inline uint64_t get_gpr_raw(int reg_num)
-#endif
-{
-    return cpu->gpr[reg_num];
-}
-
 static inline void gen_get_fpr(TCGv_i64 t, int reg_num)
 {
     tcg_gen_mov_tl(t, cpu_fpr[reg_num]);
@@ -310,6 +301,86 @@ static inline void gen_set_gpr(int reg_num_dst, TCGv t)
     }
 
     try_run_gpr_access_hook(reg_num_dst, 1);
+}
+
+static inline void gen_orcb(TCGv source1, int max_byte_index)
+{
+    target_ulong byte_mask = 0xff;
+    TCGv t0 = tcg_temp_local_new();
+    for (int i = max_byte_index; i >= 0; i--) {
+        int next_byte = gen_new_label();
+        tcg_gen_movi_tl(t0, byte_mask << i*8);
+        tcg_gen_and_tl(t0, t0, source1);
+        tcg_gen_brcondi_tl(TCG_COND_EQ, t0, 0, next_byte);
+        tcg_gen_ori_tl(source1, source1, byte_mask << i*8);
+        gen_set_label(next_byte);
+    }
+    tcg_temp_free(t0);
+}
+
+static inline void gen_cpopx(TCGv source1, int length)
+{
+    TCGv t0 = tcg_temp_new();
+    TCGv t1 = tcg_temp_new();
+
+    tcg_gen_movi_tl(t0, 0);
+    for (int i = 0; i < length; i++) {
+        tcg_gen_andi_tl(t1, source1, 1);
+        tcg_gen_add_tl(t0, t0, t1);
+        tcg_gen_shri_tl(source1, source1, 1);
+    }
+    tcg_gen_mov_tl(source1, t0);
+
+    tcg_temp_free(t0);
+    tcg_temp_free(t1);
+}
+
+static inline void gen_clmulx(TCGv source1, TCGv source2, int rs1, int from, int to, int shift_right) 
+{
+    TCGv t0, t1;
+    t0 = tcg_temp_local_new();
+    t1 = tcg_temp_local_new();
+
+    tcg_gen_movi_tl(source1, 0);
+    for (int i = from; i < to; i++) {
+        int next_bit = gen_new_label();
+        tcg_gen_shri_tl(t0, source2, i);
+        tcg_gen_andi_tl(t0, t0, 1);
+        tcg_gen_brcondi_tl(TCG_COND_NE, t0, 1, next_bit);
+
+        if (shift_right) {
+            tcg_gen_shri_tl(t1, rs1, to-i);
+        } else {
+            tcg_gen_shli_tl(t1, rs1, i);
+        }
+        tcg_gen_xor_tl(source1, source1, t1);
+        
+        gen_set_label(next_bit);
+    }
+    
+    tcg_temp_free(t0);
+    tcg_temp_free(t1);
+}
+
+static inline void gen_ctzx(TCGv source1, long long unsigned int mask) 
+{
+    TCGv t0, t1;
+    t0 = tcg_temp_local_new();
+    t1 = tcg_temp_local_new();
+    int finish = gen_new_label();
+
+    tcg_gen_movi_tl(t0, 0);
+    for (int i = 0; i < TARGET_LONG_BITS; i++) {
+        tcg_gen_movi_tl(t1, mask);
+        tcg_gen_nor_tl(t1, source1, t1);
+        tcg_gen_brcondi_tl(TCG_COND_EQ, t1, 0, finish);
+        tcg_gen_add_tl(t0, t0, t1);
+        tcg_gen_shri_tl(source1, source1, 1);
+    }
+    gen_set_label(finish);
+    tcg_gen_mov_tl(source1, t0);
+    tcg_temp_free(t0);
+    tcg_temp_free(t1);
 }
 
 static inline void get_set_gpr_imm(int reg_num_dst, target_ulong value)
@@ -419,8 +490,8 @@ static void gen_fsgnj(DisasContext *dc, uint32_t rd, uint32_t rs1, uint32_t rs2,
 static void gen_arith(DisasContext *dc, uint32_t opc, int rd, int rs1, int rs2)
 {
     TCGv source1, source2, cond1, cond2, zeroreg, resultopt1;
-    source1 = tcg_temp_new();
-    source2 = tcg_temp_new();
+    source1 = tcg_temp_local_new();
+    source2 = tcg_temp_local_new();
     gen_get_gpr(source1, rs1);
     gen_get_gpr(source2, rs2);
 
@@ -729,52 +800,45 @@ static void gen_arith(DisasContext *dc, uint32_t opc, int rd, int rs1, int rs2)
             return;
         }
 #if defined(TARGET_RISCV32)
-        TCGv left = tcg_temp_new_internal_i32(0);
-        TCGv right = tcg_temp_new_internal_i32(0);
-        TCGv xlen = tcg_temp_new_internal_i32(0);
-        tcg_gen_movi_tl(xlen, 32);
-        tcg_gen_andi_tl(source2, source2, BITMANIP_SHAMT_MASK);
+        tcg_gen_rotl_tl(source1, rs1, (rs2 & 0xF));
 #elif defined(TARGET_RISCV64)
-        TCGv left = tcg_temp_new_internal_i64(0);
-        TCGv right = tcg_temp_new_internal_i64(0);
-        TCGv xlen = tcg_temp_new_internal_i64(0);
-        tcg_gen_movi_tl(xlen, 64);
-        tcg_gen_andi_tl(source2, source2, BITMANIP_SHAMT_MASK);
+        tcg_gen_rotl_tl(source1, rs1, (rs2 & 0x1F));
 #endif
-        tcg_gen_movi_tl(left, 0UL);
-        tcg_gen_movi_tl(right, 0UL);
-        
-        tcg_gen_shl_tl(left, source1, source2);
-        tcg_gen_sub_tl(source2, xlen, source2);
-        tcg_gen_shr_tl(right, source1, source1);
-        tcg_gen_or_tl(source1, left, right);
-        
-        tcg_temp_free(left);
-        tcg_temp_free(right);
-        tcg_temp_free(xlen);
         break;
     case OPC_RISC_ROLW:
         if (!ensure_additional_extension(dc, RISCV_FEATURE_ZBB)) {
             return;
         }
-        tcg_gen_movi_tl(source1, sextract64(rol32(get_gpr_raw(rs1), get_gpr_raw(rs2) & BITMANIP_SHAMT_MASK), 0, 32));
+        cond1 = tcg_temp_new_i64();
+        tcg_gen_shli_tl(cond1, rs1, 32);
+        tcg_gen_shri_tl(source1, cond1, 32);
+        tcg_gen_rotl_i64(cond1, cond1, rs2);
+        tcg_gen_rotl_i64(source1, source1, rs2);
+        tcg_gen_or_i64(source1, source1, cond1);
+        // Sign extension is added at the end of this function
+        tcg_temp_free(cond1);
         break;
+
     case OPC_RISC_ROR:
         if (!ensure_additional_extension(dc, RISCV_FEATURE_ZBB)) {
             return;
         }
-#if defined(TARGET_RISCV32)
-        tcg_gen_movi_tl(source1, ror32(get_gpr_raw(rs1), get_gpr_raw(rs2) & BITMANIP_SHAMT_MASK));
-#elif defined(TARGET_RISCV64)
-        tcg_gen_movi_tl(source1, ror64(get_gpr_raw(rs1), get_gpr_raw(rs2) & BITMANIP_SHAMT_MASK));
-#endif
+        tcg_gen_rotr_tl(source1, rs1, rs2);
         break;
     case OPC_RISC_RORW:
         if (!ensure_additional_extension(dc, RISCV_FEATURE_ZBB)) {
             return;
         }
-        tcg_gen_movi_tl(source1, sextract64(ror32(get_gpr_raw(rs1), get_gpr_raw(rs2) & BITMANIP_SHAMT_MASK), 0, 32));
+        cond1 = tcg_temp_new_i64();
+        tcg_gen_shli_tl(source1, rs1, 32);
+        tcg_gen_rotr_i64(cond1, source1, rs2);
+        tcg_gen_shr_i64(source1, source1, rs2);
+        tcg_gen_shri_i64(cond1, cond1, 32);
+        tcg_gen_or_i64(source1, source1, cond1);
+        // Sign extension is added at the end of this function
+        tcg_temp_free(cond1);
         break;
+
     case OPC_RISC_BCLR:
         if (!ensure_additional_extension(dc, RISCV_FEATURE_ZBS)) {
             return;
@@ -846,31 +910,19 @@ static void gen_arith(DisasContext *dc, uint32_t opc, int rd, int rs1, int rs2)
         if (!ensure_additional_extension(dc, RISCV_FEATURE_ZBC)) {
             return;
         }
-#if defined(TARGET_RISCV32)
-        tcg_gen_movi_tl(source1, clmul32(get_gpr_raw(rs1), get_gpr_raw(rs2)));
-#elif defined(TARGET_RISCV64)
-        tcg_gen_movi_tl(source1, clmul64(get_gpr_raw(rs1), get_gpr_raw(rs2)));
-#endif
+        gen_clmulx(source1, source2, rs1, 0, TARGET_LONG_BITS-1, 0);
         break;
     case OPC_RISC_CLMULR:
         if (!ensure_additional_extension(dc, RISCV_FEATURE_ZBC)) {
             return;
         }
-#if defined(TARGET_RISCV32)
-        tcg_gen_movi_tl(source1, clmulr32(get_gpr_raw(rs1), get_gpr_raw(rs2)));
-#elif defined(TARGET_RISCV64)
-        tcg_gen_movi_tl(source1, clmulr64(get_gpr_raw(rs1), get_gpr_raw(rs2)));
-#endif
+        gen_clmulx(source1, source2, rs1, 0, TARGET_LONG_BITS-1, 1);
         break;
     case OPC_RISC_CLMULH:
         if (!ensure_additional_extension(dc, RISCV_FEATURE_ZBC)) {
             return;
         }
-#if defined(TARGET_RISCV32)
-        tcg_gen_movi_tl(source1, clmulh32(get_gpr_raw(rs1), get_gpr_raw(rs2)));
-#elif defined(TARGET_RISCV64)
-        tcg_gen_movi_tl(source1, clmulh64(get_gpr_raw(rs1), get_gpr_raw(rs2)));
-#endif
+        gen_clmulx(source1, source2, rs1, 1, TARGET_LONG_BITS, 1);
         break;
     default:
         kill_unknown(dc, RISCV_EXCP_ILLEGAL_INST);
@@ -911,6 +963,7 @@ static void gen_synch(DisasContext *dc, uint32_t opc)
 
 static void gen_arith_bitmanip(DisasContext *dc, int rd, int rs1, target_long imm, TCGv source1)
 {
+    TCGv_i64 t0;
     uint32_t opc = 0;
     switch ((dc->opcode >> 12) & 0x7) {
     case 0x1:
@@ -927,7 +980,7 @@ static void gen_arith_bitmanip(DisasContext *dc, int rd, int rs1, target_long im
         }
         break;
     case 0x5:
-        if ((dc->opcode) & OPC_RISC_RORIW) {
+        if (((dc->opcode) & OPC_RISC_RORIW) == 0) {
             opc = MASK_OP_ARITH_IMM_ZB_5_12_SHAMT_LAST_7(dc->opcode);
             break;
         }
@@ -954,30 +1007,6 @@ static void gen_arith_bitmanip(DisasContext *dc, int rd, int rs1, target_long im
         }
         tcg_gen_clzi_i32(source1, source1, 32);
         break;
-    case OPC_RISC_CTZW:
-        if (!ensure_additional_extension(dc, RISCV_FEATURE_ZBB)) {
-            return;
-        }
-        tcg_gen_movi_tl(source1, ctz32(get_gpr_raw(rs1)));
-        break;
-    case OPC_RISC_CPOPW:
-        if (!ensure_additional_extension(dc, RISCV_FEATURE_ZBB)) {
-            return;
-        }
-        tcg_gen_movi_tl(source1, ctpop32(get_gpr_raw(rs1)));
-        break;
-    case OPC_RISC_REV8_32:
-        if (!ensure_additional_extension(dc, RISCV_FEATURE_ZBB)) {
-            return;
-        }
-        tcg_gen_movi_tl(source1, brev32(get_gpr_raw(rs1)));
-        break;
-    case OPC_RISC_REV8_64:
-        if (!ensure_additional_extension(dc, RISCV_FEATURE_ZBB)) {
-            return;
-        }
-        tcg_gen_movi_tl(source1, brev64(get_gpr_raw(rs1)));
-        break;
     case OPC_RISC_RORI:
         if (!ensure_additional_extension(dc, RISCV_FEATURE_ZBB)) {
             return;
@@ -988,7 +1017,6 @@ static void gen_arith_bitmanip(DisasContext *dc, int rd, int rs1, target_long im
         if (!ensure_additional_extension(dc, RISCV_FEATURE_ZBB)) {
             return;
         }
-        TCGv_i64 t0;
         t0 = tcg_temp_new_i64();
         tcg_gen_rotri_i64(t0, source1, (imm & BITMANIP_SHAMT_MASK));
         tcg_gen_rotri_i64(source1, source1, 32 + (imm & BITMANIP_SHAMT_MASK));
@@ -1001,24 +1029,37 @@ static void gen_arith_bitmanip(DisasContext *dc, int rd, int rs1, target_long im
         }
         tcg_gen_shli_tl(source1, source1, (imm & BITMANIP_SHAMT_MASK));
         break;
-#if defined(TARGET_RISCV32)
-    case OPC_RISC_CLZ:
+    case OPC_RISC_REV8_32:
         if (!ensure_additional_extension(dc, RISCV_FEATURE_ZBB)) {
             return;
         }
-        tcg_gen_clzi_i32(source1, source1, 32);
+        tcg_gen_bswap32_i32(source1, source1);
         break;
+    case OPC_RISC_REV8_64:
+        if (!ensure_additional_extension(dc, RISCV_FEATURE_ZBB)) {
+            return;
+        }
+        tcg_gen_bswap64_i64(source1, source1);
+        break;
+
     case OPC_RISC_CTZ:
         if (!ensure_additional_extension(dc, RISCV_FEATURE_ZBB)) {
             return;
         }
-        tcg_gen_movi_tl(source1, ctz32(get_gpr_raw(rs1)));
+        gen_ctzx(source1, 0xFFFFFFFE);
         break;
     case OPC_RISC_CPOP:
         if (!ensure_additional_extension(dc, RISCV_FEATURE_ZBB)) {
             return;
         }
-        tcg_gen_movi_tl(source1, ctpop32(get_gpr_raw(rs1)));
+        gen_cpopx(source1, TARGET_LONG_BITS);
+        break;
+#if defined(TARGET_RISCV32)
+    case OPC_RISC_CLZ:
+        if (!ensure_additional_extension(dc, RISCV_FEATURE_ZBB)) {
+            return;
+        } 
+        tcg_gen_clzi_i32(source1, source1, 32);
         break;
     case OPC_RISC_SEXT_B:
         if (!ensure_additional_extension(dc, RISCV_FEATURE_ZBB)) {
@@ -1036,7 +1077,7 @@ static void gen_arith_bitmanip(DisasContext *dc, int rd, int rs1, target_long im
         if (!ensure_additional_extension(dc, RISCV_FEATURE_ZBB)) {
             return;
         }
-        tcg_gen_movi_tl(source1, orcb32(get_gpr_raw(rs1)));
+        gen_orcb(source1, 3);
         break;
     case OPC_RISC_BCLRI:
         if (!ensure_additional_extension(dc, RISCV_FEATURE_ZBS)) {
@@ -1070,17 +1111,17 @@ static void gen_arith_bitmanip(DisasContext *dc, int rd, int rs1, target_long im
         }
         tcg_gen_clzi_i64(source1, source1, 64);
         break;
-    case OPC_RISC_CTZ:
+    case OPC_RISC_CTZW:
         if (!ensure_additional_extension(dc, RISCV_FEATURE_ZBB)) {
             return;
         }
-        tcg_gen_movi_tl(source1, ctz64(get_gpr_raw(rs1)));
+        gen_ctzx(source1, 0xFFFFFFFFFFFFFFFE);
         break;
-    case OPC_RISC_CPOP:
+    case OPC_RISC_CPOPW:
         if (!ensure_additional_extension(dc, RISCV_FEATURE_ZBB)) {
             return;
         }
-        tcg_gen_movi_tl(source1, ctpop64(get_gpr_raw(rs1)));
+        gen_cpopx(source1, 32);
         break;
     case OPC_RISC_SEXT_B:
         if (!ensure_additional_extension(dc, RISCV_FEATURE_ZBB)) {
@@ -1098,7 +1139,7 @@ static void gen_arith_bitmanip(DisasContext *dc, int rd, int rs1, target_long im
         if (!ensure_additional_extension(dc, RISCV_FEATURE_ZBB)) {
             return;
         }
-        tcg_gen_movi_tl(source1, orcb64(get_gpr_raw(rs1)));
+        gen_orcb(source1, 7);
         break;
     case OPC_RISC_BCLRI:
         if (!ensure_additional_extension(dc, RISCV_FEATURE_ZBS)) {
@@ -1135,7 +1176,7 @@ static void gen_arith_bitmanip(DisasContext *dc, int rd, int rs1, target_long im
 static void gen_arith_imm(DisasContext *dc, uint32_t opc, int rd, int rs1, target_long imm)
 {
     TCGv source1;
-    source1 = tcg_temp_new();
+    source1 = tcg_temp_local_new();
     gen_get_gpr(source1, rs1);
     target_long extra_shamt = 0;
 
