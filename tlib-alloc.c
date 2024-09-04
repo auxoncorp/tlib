@@ -8,8 +8,8 @@
 #include <handleapi.h>
 #endif
 #if defined(__APPLE__)
-#include <fcntl.h>
-#include <stdio.h>
+#include <mach/mach.h>
+#include <mach/mach_vm.h>
 #endif
 #include <unistd.h>
 #include <stdint.h>
@@ -106,7 +106,37 @@ static bool alloc_code_gen_buf_split(uint64_t size)
 #elif defined(__APPLE__)
 static bool alloc_code_gen_buf_split(uint64_t size)
 {
-    return false;
+    mach_vm_address_t rw, rx;
+
+    int flags = MAP_ANONYMOUS | MAP_SHARED;
+    rw = (mach_vm_address_t) mmap(NULL, size, PROT_READ | PROT_WRITE, flags, -1, 0);
+    if(rw == (mach_vm_address_t) MAP_FAILED) {
+        tlib_printf(LOG_LEVEL_ERROR, "Failed to mmap rw buffer, error: %s", strerror(errno));
+        return false;
+    }
+    rx = 0;
+    vm_prot_t current_prot, max_prot;
+    kern_return_t res = mach_vm_remap(mach_task_self(), &rx, size, 0, VM_FLAGS_ANYWHERE, mach_task_self(), rw, false, &current_prot, &max_prot, VM_INHERIT_NONE);
+    if (res != KERN_SUCCESS) {
+        tlib_printf(LOG_LEVEL_ERROR, "Failed to mach_vm_remap rx buffer, error: %i", res);
+        munmap((void*)rw, size);
+        return false;
+    }
+
+    if(mprotect((void*) rx, size, PROT_READ | PROT_EXEC) != 0) {
+        tlib_printf(LOG_LEVEL_ERROR, "Failed to mprotect rx buffer");
+        // Unmap the memory regions so they don't leak
+        munmap((void*) rw, size);
+        munmap((void*) rx, size);
+        return false;
+    }
+
+    tcg_rw_buffer = (uint8_t *) rw;
+    tcg_rx_buffer = (uint8_t *) rx;
+    tcg_wx_diff = tcg_rw_buffer - tcg_rx_buffer;
+    code_gen_buffer_size = size;
+    return true;
+
 }
 #elif defined(_WIN32)
 static void map_exec(void *addr, long size)
