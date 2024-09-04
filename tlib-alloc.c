@@ -26,7 +26,7 @@ uint64_t code_gen_buffer_size;
 
 intptr_t tcg_wx_diff;
 
-const void* rw_ptr_to_rx(void *ptr)
+void* rw_ptr_to_rx(void *ptr)
 {
     if (ptr == NULL) {
         // null pointers should not be changed
@@ -141,7 +141,11 @@ void free_code_gen_buf()
 #endif
 bool alloc_code_gen_buf(uint64_t size)
 {
+#if defined(__aarch64__)
     bool split_wx = true;
+#else
+    bool split_wx = false;
+#endif
     if (split_wx) {
         return alloc_code_gen_buf_split(size);
     } else {

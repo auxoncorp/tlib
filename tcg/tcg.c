@@ -39,6 +39,7 @@
 #include "host-utils.h"
 
 #include "tcg-op.h"
+#include "../include/tlib-alloc.h"
 
 #define R_386_PC32 2
 #define R_386_PC8  23
@@ -127,7 +128,8 @@ static void tcg_out_label(TCGContext *s, int label_index, tcg_target_long value)
         r = r->next;
     }
     l->has_value = 1;
-    l->u.value = value;
+    // Convert the address to the rx address space
+    l->u.value = (tcg_target_long) rw_ptr_to_rx((void*) value);
 }
 
 int gen_new_label(void)
@@ -295,7 +297,7 @@ void tcg_prologue_init()
     tcg->ctx->code_buf = tcg->code_gen_prologue;
     tcg->ctx->code_ptr = tcg->ctx->code_buf;
     tcg_target_qemu_prologue(tcg->ctx);
-    flush_icache_range((uintptr_t)tcg->ctx->code_buf, (uintptr_t)tcg->ctx->code_ptr);
+    flush_icache_range((uintptr_t)rw_ptr_to_rx(tcg->ctx->code_buf), (uintptr_t)rw_ptr_to_rx(tcg->ctx->code_ptr));
 }
 
 void tcg_set_frame(TCGContext *s, int reg, tcg_target_long start, tcg_target_long size)
@@ -1863,7 +1865,7 @@ int tcg_gen_code(TCGContext *s, uint8_t *gen_code_buf)
     tcg_gen_code_common(s, gen_code_buf);
 
     /* flush instruction cache */
-    flush_icache_range((uintptr_t)gen_code_buf, (uintptr_t)s->code_ptr);
+    flush_icache_range((uintptr_t)rw_ptr_to_rx(gen_code_buf), (uintptr_t)rw_ptr_to_rx(s->code_ptr));
     return s->code_ptr -  gen_code_buf;
 }
 
