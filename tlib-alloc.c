@@ -27,11 +27,11 @@ uint64_t code_gen_buffer_size;
 
 intptr_t tcg_wx_diff;
 
-static bool is_ptr_in_rw_buf(const void *ptr)
+bool is_ptr_in_rw_buf(const void *ptr)
 {
     return (ptr >= (void*)tcg_rw_buffer) && (ptr < ((void*)tcg_rw_buffer + code_gen_buffer_size + TCG_PROLOGUE_SIZE));
 }
-static bool is_ptr_in_rx_buf(const void *ptr)
+bool is_ptr_in_rx_buf(const void *ptr)
 {
     return (ptr >= (void*)tcg_rx_buffer) && (ptr < ((void*)tcg_rx_buffer + code_gen_buffer_size + TCG_PROLOGUE_SIZE));
 }

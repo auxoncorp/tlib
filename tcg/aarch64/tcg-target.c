@@ -230,17 +230,14 @@ static inline void tcg_out_goto_label(TCGContext *s, int cond, int label_index)
 // Helper to generate function calls to constant address
 static inline void tcg_out_calli(TCGContext *s, tcg_target_ulong addr)
 {
-    // Offset is only 26-bits, so we can't jump further than that without storing it in a reg first
-    int offset = addr - (tcg_target_long)s->code_ptr;
-    if (abs(offset) > 0x3ffffff) {
-        // Jump is too long, store the address in a register and then branch and link
-        // Since it is an absolute address we need to convert it to the execute memory region
+    // The target address can either be one we have generated, or somehting outside that.
+    // So we need to check if the target has to be translated
+    if (is_ptr_in_rw_buf((const void*)addr)) {
         tcg_out_movi(s, 0, TCG_TMP_REG, (tcg_target_ulong) rw_ptr_to_rx((void*)addr));
-        tcg_out_blr(s, TCG_TMP_REG);
     } else {
-        // Offset fits in immediate, so we just branch and link
-        tcg_out_bl(s, offset);
+        tcg_out_movi(s, 0, TCG_TMP_REG, addr);
     }
+    tcg_out_blr(s, TCG_TMP_REG);
 }
 // Helper function to emit STP, store pair instructions with offset adressing mode (i.e no changing the base register)
 static inline void tcg_out_stp(TCGContext *s, int reg1, int reg2, int reg_base, tcg_target_long offset)
