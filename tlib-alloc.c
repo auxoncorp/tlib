@@ -18,6 +18,7 @@
 
 #include "infrastructure.h"
 #include "tlib-alloc.h"
+#include "tcg/tcg.h"
 
 uint8_t *tcg_rw_buffer;
 uint8_t *tcg_rx_buffer;
@@ -26,12 +27,21 @@ uint64_t code_gen_buffer_size;
 
 intptr_t tcg_wx_diff;
 
+static bool is_ptr_in_rw_buf(const void *ptr)
+{
+    return (ptr >= (void*)tcg_rw_buffer) && (ptr < ((void*)tcg_rw_buffer + code_gen_buffer_size + TCG_PROLOGUE_SIZE));
+}
+static bool is_ptr_in_rx_buf(const void *ptr)
+{
+    return (ptr >= (void*)tcg_rx_buffer) && (ptr < ((void*)tcg_rx_buffer + code_gen_buffer_size + TCG_PROLOGUE_SIZE));
+}
 void* rw_ptr_to_rx(void *ptr)
 {
     if (ptr == NULL) {
         // null pointers should not be changed
         return ptr;
     }
+    tlib_assert(is_ptr_in_rx_buf(ptr - tcg_wx_diff));
     return ptr - tcg_wx_diff;
 }
 void* rx_ptr_to_rw(const void *ptr)
@@ -40,6 +50,7 @@ void* rx_ptr_to_rw(const void *ptr)
         // null pointers should not be changed
         return (void*) ptr;
     }
+    tlib_assert(is_ptr_in_rw_buf(ptr + tcg_wx_diff));
     return (void*) (ptr + tcg_wx_diff);
 }
 
@@ -172,7 +183,7 @@ void free_code_gen_buf()
 bool alloc_code_gen_buf(uint64_t size)
 {
 #if defined(__aarch64__)
-    bool split_wx = true;
+    bool split_wx = false;
 #else
     bool split_wx = false;
 #endif

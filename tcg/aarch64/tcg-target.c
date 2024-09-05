@@ -198,7 +198,7 @@ static inline void tcg_out_goto_label(TCGContext *s, int cond, int label_index)
         // Label has a target address so we just branch to it
         if (cond == COND_AL) {
             // Unconditional branch
-            tcg_out_movi(s, TCG_TYPE_PTR, TCG_TMP_REG, l->u.value);
+            tcg_out_movi(s, TCG_TYPE_PTR, TCG_TMP_REG, (tcg_target_long) rw_ptr_to_rx((void*)l->u.value));
             tcg_out_br(s, TCG_TMP_REG);
         } else {
             // Conditional branch, takes 19-bit PC-relative offset
@@ -234,7 +234,8 @@ static inline void tcg_out_calli(TCGContext *s, tcg_target_ulong addr)
     int offset = addr - (tcg_target_long)s->code_ptr;
     if (abs(offset) > 0x3ffffff) {
         // Jump is too long, store the address in a register and then branch and link
-        tcg_out_movi(s, 0, TCG_TMP_REG, addr);
+        // Since it is an absolute address we need to convert it to the execute memory region
+        tcg_out_movi(s, 0, TCG_TMP_REG, (tcg_target_ulong) rw_ptr_to_rx((void*)addr));
         tcg_out_blr(s, TCG_TMP_REG);
     } else {
         // Offset fits in immediate, so we just branch and link
@@ -742,7 +743,7 @@ static void tcg_target_qemu_prologue(TCGContext *s)
     tcg_out_br(s, tcg_target_call_iarg_regs[1]);
 
     // Epilogue
-    tb_ret_addr = s->code_ptr;
+    tb_ret_addr = rw_ptr_to_rx(s->code_ptr);
     // Load all the registers we saved above to restore system state
     tcg_out_ldp(s, TCG_REG_R29, TCG_REG_R30, TCG_REG_SP, 80);
     tcg_out_ldp(s, TCG_REG_R27, TCG_REG_R28, TCG_REG_SP, 64);
