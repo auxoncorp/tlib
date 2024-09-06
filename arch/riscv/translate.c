@@ -927,6 +927,10 @@ static void gen_arith_bitmanip(DisasContext *dc, int rd, int rs1, target_long im
         }
         break;
     case 0x5:
+        if ((dc->opcode) & OPC_RISC_RORIW) {
+            opc = MASK_OP_ARITH_IMM_ZB_5_12_SHAMT_LAST_7(dc->opcode);
+            break;
+        }
         switch ((dc->opcode >> 26) & BITMANIP_SHAMT_MASK) {
         case 0b001010: // orc.b
         case 0b011010: // rev8
@@ -973,6 +977,29 @@ static void gen_arith_bitmanip(DisasContext *dc, int rd, int rs1, target_long im
             return;
         }
         tcg_gen_movi_tl(source1, brev64(get_gpr_raw(rs1)));
+        break;
+    case OPC_RISC_RORI:
+        if (!ensure_additional_extension(dc, RISCV_FEATURE_ZBB)) {
+            return;
+        }
+        tcg_gen_rotri_tl(source1, source1, (imm & BITMANIP_SHAMT_MASK));
+        break;
+    case OPC_RISC_RORIW:
+        if (!ensure_additional_extension(dc, RISCV_FEATURE_ZBB)) {
+            return;
+        }
+        TCGv_i64 t0;
+        t0 = tcg_temp_new_i64();
+        tcg_gen_rotri_i64(t0, source1, (imm & BITMANIP_SHAMT_MASK));
+        tcg_gen_rotri_i64(source1, source1, 32 + (imm & BITMANIP_SHAMT_MASK));
+        tcg_gen_or_i64(source1, source1, t0);
+        tcg_temp_free(t0);
+        break;
+    case OPC_RISC_SLLI_UW:
+        if (!ensure_additional_extension(dc, RISCV_FEATURE_ZBA)) {
+            return;
+        }
+        tcg_gen_shli_tl(source1, source1, (imm & BITMANIP_SHAMT_MASK));
         break;
 #if defined(TARGET_RISCV32)
     case OPC_RISC_CLZ:
@@ -1175,28 +1202,6 @@ static void gen_arith_imm(DisasContext *dc, uint32_t opc, int rd, int rs1, targe
             /* SRLI[W] */
             tcg_gen_shri_tl(source1, source1, imm + extra_shamt);
         }
-        break;
-    case OPC_RISC_SLLI_UW:
-        if (!ensure_additional_extension(dc, RISCV_FEATURE_ZBA)) {
-            return;
-        }
-        tcg_gen_shli_tl(rd, source1, imm);
-        break;
-    case OPC_RISC_RORI:
-        if (!ensure_additional_extension(dc, RISCV_FEATURE_ZBB)) {
-            return;
-        }
-#if defined(TARGET_RISCV32)
-        tcg_gen_movi_tl(source1, ror32(source1, (imm & BITMANIP_SHAMT_MASK)));
-#elif defined(TARGET_RISCV64)
-        tcg_gen_movi_tl(source1, ror64(source1, (imm & BITMANIP_SHAMT_MASK)));
-#endif
-        break;
-    case OPC_RISC_RORIW:
-        if (!ensure_additional_extension(dc, RISCV_FEATURE_ZBB)) {
-            return;
-        }
-        tcg_gen_movi_tl(source1, sextract64(ror32(source1, imm), 0, 32));
         break;
     default:
         kill_unknown(dc, RISCV_EXCP_ILLEGAL_INST);

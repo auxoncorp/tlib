@@ -127,7 +127,7 @@ enum {
     OPC_RISC_ANDI          = OPC_RISC_ARITH_IMM | (0x7 << 12),
     OPC_RISC_SLLI          = OPC_RISC_ARITH_IMM | (0x1 << 12), /* additional part of
                                                                   IMM */
-    OPC_RISC_SHIFT_RIGHT_I = OPC_RISC_ARITH_IMM | (0x5 << 12)  /* SRAI, SRLI */
+    OPC_RISC_SHIFT_RIGHT_I = OPC_RISC_ARITH_IMM | (0x5 << 12)  /* SRAI, SRLI, Zbb extensions */
 };
 
 #define MASK_OP_ARITH_IMM_ZB_1_12(op) (MASK_OP_MAJOR(op) | (op & (0x7 << 12)) | (op & (0xFFF << 20)))
@@ -165,6 +165,8 @@ enum {
     OPC_RISC_BEXTI         = OPC_RISC_ARITH_IMM | (0x5 << 12) | (0x12 << 26),
 };
 
+#define MASK_OP_ARITH_IMM_ZB_5_12_SHAMT_LAST_7(op) (MASK_OP_MAJOR(op) | (op & (0x7 << 12)) | (op & (0x3F << 25)))
+
 #define MASK_OP_BRANCH(op) (MASK_OP_MAJOR(op) | (op & (0x7 << 12)))
 enum {
     OPC_RISC_BEQ  = OPC_RISC_BRANCH  | (0x0  << 12),
@@ -179,8 +181,8 @@ enum {
     OPC_RISC_ADDIW          = OPC_RISC_ARITH_IMM_W | (0x0 << 12),
     OPC_RISC_SLLIW          = OPC_RISC_ARITH_IMM_W | (0x1 << 12), /* additional part of
                                                                      IMM */
-    OPC_RISC_SHIFT_RIGHT_IW = OPC_RISC_ARITH_IMM_W | (0x5 << 12), /* SRAI, SRLI
-                                                                   */
+    OPC_RISC_SHIFT_RIGHT_IW = OPC_RISC_ARITH_IMM_W | (0x5 << 12), /* SRAI, SRLI,
+                                                                     RORIW */
 
     /* Zba: */
     OPC_RISC_SLLI_UW        = OPC_RISC_ARITH_IMM_W | (0x1 << 12) | (0x1 << 27),
