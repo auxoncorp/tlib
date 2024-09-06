@@ -918,21 +918,22 @@ static void gen_arith_bitmanip(DisasContext *dc, int rd, int rs1, target_long im
         case 0b011000:
             opc = MASK_OP_ARITH_IMM_ZB_1_12(dc->opcode);
             break;
-        case 0b010010:
-        case 0b011010:
-        case 0b001010:
+        case 0b010010: // bclri
+        case 0b011010: // binvi
+        case 0b001010: // bseti
+        case 0b000010: // slli.uw
             opc = MASK_OP_ARITH_IMM_ZB_1_12_SHAMT(dc->opcode);
             break;
         }
         break;
     case 0x5:
         switch ((dc->opcode >> 26) & BITMANIP_SHAMT_MASK) {
-        case 0b001010:
-        case 0b011010:
+        case 0b001010: // orc.b
+        case 0b011010: // rev8
             opc = MASK_OP_ARITH_IMM_ZB_5_12(dc->opcode);
             break;
-        case 0b010010:
-        case 0b011000:
+        case 0b010010: // bexti
+        case 0b011000: // rori
             opc = MASK_OP_ARITH_IMM_ZB_5_12_SHAMT(dc->opcode);
             break;
         }
