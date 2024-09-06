@@ -183,7 +183,7 @@ enum {
                                                                    */
 
     /* Zba: */
-    OPC_RISC_SLLI_UW        = OPC_RISC_ARITH_IMM_W | (0x1 << 12) | (0x02 << 25),
+    OPC_RISC_SLLI_UW        = OPC_RISC_ARITH_IMM_W | (0x1 << 12) | (0x1 << 27),
     
     /* Zbb: */
     OPC_RISC_CLZW           = OPC_RISC_ARITH_IMM_W | (0x1 << 12) | (0x600 << 20),
