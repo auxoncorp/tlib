@@ -1900,10 +1900,6 @@ static void gen_atomic(CPUState *env, DisasContext *dc, uint32_t opc, int rd, in
     gen_helper_acquire_global_memory_lock(cpu_env);
 
     switch (opc) {
-    /*
-     * Note about LR/SC instructions:
-     * Our implementation reserves the address, not region.
-     */
     case OPC_RISC_LR_W:
         gen_helper_reserve_address(cpu_env, source1, tcg_const_i32(0));
         tcg_gen_qemu_ld32s(dat, source1, dc->base.mem_idx);
@@ -1965,20 +1961,12 @@ static void gen_atomic(CPUState *env, DisasContext *dc, uint32_t opc, int rd, in
         tcg_gen_qemu_st32(source2, source1, dc->base.mem_idx);
         break;
 #if defined(TARGET_RISCV64)
-     /*
-      * Note about LR/SC instructions:
-      * Our implementation reserves the address, not region.
-      */
     case OPC_RISC_LR_D:
-        gen_helper_reserve_address(cpu_env, source1, tcg_const_i64(0));
         tcg_gen_qemu_ld64(dat, source1, dc->base.mem_idx);
         break;
     case OPC_RISC_SC_D:
-        finish_label = gen_new_label();
-        gen_helper_check_address_reservation(dat, cpu_env, source1);
-        tcg_gen_brcondi_tl(TCG_COND_NE, dat, 0, finish_label);
         tcg_gen_qemu_st64(source2, source1, dc->base.mem_idx);
-        gen_set_label(finish_label);
+        tcg_gen_movi_tl(dat, 0); // assume always success
         break;
     case OPC_RISC_AMOSWAP_D:
         tcg_gen_qemu_ld64(dat, source1, dc->base.mem_idx);
