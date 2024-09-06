@@ -1136,10 +1136,6 @@ static void gen_arith_imm(DisasContext *dc, uint32_t opc, int rd, int rs1, targe
         break;
 #if defined(TARGET_RISCV64)
     case OPC_RISC_SLLIW:
-        if ((imm >= 32)) {
-            kill_unknown(dc, RISCV_EXCP_ILLEGAL_INST);
-            break;
-        }
         /* fall through to SLLI */
 #endif
     /* fallthrough */
@@ -1156,9 +1152,6 @@ static void gen_arith_imm(DisasContext *dc, uint32_t opc, int rd, int rs1, targe
         break;
 #if defined(TARGET_RISCV64)
     case OPC_RISC_SHIFT_RIGHT_IW:
-        if ((imm & 0x3ff) >= 32) {
-            kill_unknown(dc, RISCV_EXCP_ILLEGAL_INST);
-        }
         tcg_gen_shli_tl(source1, source1, 32);
         extra_shamt = 32;
         /* fall through to SHIFT_RIGHT_I */
