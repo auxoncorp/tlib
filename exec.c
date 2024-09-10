@@ -305,7 +305,7 @@ static void tlb_unprotect_code_phys(CPUState *env, ram_addr_t ram_addr, target_u
 extern uint64_t translation_cache_size_min;
 extern uint64_t translation_cache_size_max;
 
-static void code_gen_alloc()
+static bool code_gen_alloc()
 {
     if (code_gen_buffer_size < translation_cache_size_min) {
         code_gen_buffer_size = translation_cache_size_min;
@@ -318,7 +318,9 @@ static void code_gen_alloc()
     code_gen_buffer_size += TCG_PROLOGUE_SIZE;
 
     if (!alloc_code_gen_buf(code_gen_buffer_size)) {
-        tlib_abort("Failed to create code_gen_buffer");
+        tlib_printf(LOG_LEVEL_DEBUG, "Failed to create code_gen_buffer of size %u", code_gen_buffer_size);
+        code_gen_buffer_size -= TCG_PROLOGUE_SIZE;
+        return false;
     }
 
     // There is now an extra TCG_PROLOGUE_SIZE amount bytes avaible at the end of the block
@@ -334,15 +336,16 @@ static void code_gen_alloc()
     tcg_prologue_init();
     // Prologue is generated, point it to the rx view of the memory
     tcg->code_gen_prologue = (uint8_t *) rw_ptr_to_rx(tcg->code_gen_prologue);
+    return true;
 }
 
-static void code_gen_expand()
+// Attempts to expand the code_gen_buffer, keeping the same size if the larger allocation fails
+static void code_gen_try_expand()
 {
     if (code_gen_buffer_size >= MAX_CODE_GEN_BUFFER_SIZE) {
         return;
     }
 
-    /* `code_gen_alloc` might still decide to cap the size later on */
     tlib_printf(LOG_LEVEL_DEBUG, "Trying to expand code_gen_buffer size from %" PRIu64 " to %" PRIu64, code_gen_buffer_size, code_gen_buffer_size * 2);
 
     /* Discard the current code buffer. This makes all generated code invalid (`tb_flush` should have been executed before) */
@@ -350,10 +353,17 @@ static void code_gen_expand()
 
     /* After increasing the size, allocate the buffer again. Note, that it might end in a different location in memory */
     code_gen_buffer_size *= 2;
-    code_gen_alloc();
+    if (!code_gen_alloc()) {
+        // The larger buffer failed to allocate, so we try the old size again
+        code_gen_buffer_size /= 2;
+        if (!code_gen_alloc()) {
+            // Same old size failed to allocate, system is either out of memory or we are in a corrupted state, so we just crash
+            tlib_abort("Failed to reallocate code_gen_buffer after attempted expansion, did the system run out of memory?");
+            return;
+        }
+    }
 
     code_gen_ptr = tcg_rw_buffer;
-    return;
 }
 
 void code_gen_free(void)
@@ -369,7 +379,9 @@ TCGv_ptr cpu_env;
 void cpu_exec_init_all()
 {
     tcg_context_init();
-    code_gen_alloc();
+    if (!code_gen_alloc()) {
+        tlib_abort("Failed to allocate code_gen_buffer");
+    }
     code_gen_ptr = tcg_rw_buffer;
     page_init();
     cpu_env = tcg_global_reg_new_ptr(TCG_AREG0, "env");
@@ -662,8 +674,8 @@ TranslationBlock *tb_gen_code(CPUState *env, target_ulong pc, target_ulong cs_ba
     if (!tb) {
         /* flush must be done */
         tb_flush(env);
-        /* expand code gen buffer */
-        code_gen_expand();
+        /* try to expand code gen buffer */
+        code_gen_try_expand();
         /* cannot fail at this point */
         tb = tb_alloc(pc);
         /* Don't forget to invalidate previous TB info.  */

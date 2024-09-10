@@ -11,6 +11,7 @@
 #include <mach/mach.h>
 #include <mach/mach_vm.h>
 #endif
+
 #include <unistd.h>
 #include <stdint.h>
 #include <errno.h>
@@ -72,8 +73,8 @@ static bool alloc_code_gen_buf_unified(uint64_t size)
 void free_code_gen_buf()
 {
     // If not using split buffers the second one will fail, but this causes no issues
-    munmap(tcg_rw_buffer, code_gen_buffer_size);
-    munmap(tcg_rx_buffer, code_gen_buffer_size);
+    munmap(tcg_rw_buffer, code_gen_buffer_size + TCG_PROLOGUE_SIZE);
+    munmap(tcg_rx_buffer, code_gen_buffer_size + TCG_PROLOGUE_SIZE);
 }
 #endif
 
@@ -103,6 +104,7 @@ static bool alloc_code_gen_buf_split(uint64_t size)
     if (rw == MAP_FAILED) {
         tlib_printf(LOG_LEVEL_DEBUG, "Failed to mmap rx buffer, error: %s", strerror(errno));
         close(fd);
+        // unmap region so it does not leak
         munmap(rw, size);
         return false;
     }
@@ -164,7 +166,6 @@ static bool alloc_code_gen_buf_split(uint64_t size)
 }
 static bool alloc_code_gen_buf_unified(uint64_t size)
 {
-    // No seperate buffer views on windows for now
     uint8_t *buf = tlib_malloc(size);
     if (buf == NULL) {
         return false;
@@ -180,10 +181,11 @@ void free_code_gen_buf()
     tlib_free(tcg_rw_buffer);
 }
 #endif
+
 bool alloc_code_gen_buf(uint64_t size)
 {
 #if defined(__aarch64__)
-    bool split_wx = false;
+    bool split_wx = true;
 #else
     bool split_wx = false;
 #endif
