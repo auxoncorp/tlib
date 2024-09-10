@@ -244,15 +244,19 @@ static inline void tcg_out_calli(TCGContext *s, tcg_target_ulong addr)
 // Helper function to emit STP, store pair instructions with offset adressing mode (i.e no changing the base register)
 static inline void tcg_out_stp(TCGContext *s, int reg1, int reg2, int reg_base, tcg_target_long offset)
 {
+    // Offset needs to be a multiple of 8, it gets encoded as offset/8
+    tlib_assert(offset % 8 == 0);
     // Offset is 7 bits
-    tcg_out32(s, 0xa9000000 | ((offset & 0x7f) << 15) | (reg2 << 10) | (reg_base << 5) | (reg1 << 0));
+    tcg_out32(s, 0xa9000000 | (((offset / 8) & 0x7f) << 15) | (reg2 << 10) | (reg_base << 5) | (reg1 << 0));
 }
 
 // Helper function to emit LDP, load pair instructions with offset adressing mode (i.e no changing the base register)
 static inline void tcg_out_ldp(TCGContext *s, int reg1, int reg2, int reg_base, tcg_target_long offset)
 {
+    // Offset needs to be a multiple of 8, it gets encoded as offset/8
+    tlib_assert(offset % 8 == 0);
     // Offset is 7 bits
-    tcg_out32(s, 0xa9400000 | ((offset & 0x7f) << 15) | (reg2 << 10) | (reg_base << 5) | (reg1 << 0));
+    tcg_out32(s, 0xa9400000 | (((offset / 8) & 0x7f) << 15) | (reg2 << 10) | (reg_base << 5) | (reg1 << 0));
 }
 
 static inline void tcg_out_mov(TCGContext *s, TCGType type, TCGReg ret, TCGReg arg)
