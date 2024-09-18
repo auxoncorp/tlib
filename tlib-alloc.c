@@ -152,11 +152,10 @@ static bool alloc_code_gen_buf_split(uint64_t size)
 
 }
 #elif defined(_WIN32)
-static void map_exec(void *addr, long size)
+static bool map_exec(void *addr, long size)
 {
     DWORD old_protect;
-    int temp = VirtualProtect(addr, size, PAGE_EXECUTE_READWRITE, &old_protect);
-    temp++;
+    return (bool) VirtualProtect(addr, size, PAGE_EXECUTE_READWRITE, &old_protect);
 }
 static bool alloc_code_gen_buf_split(uint64_t size)
 {
@@ -170,7 +169,10 @@ static bool alloc_code_gen_buf_unified(uint64_t size)
     if (buf == NULL) {
         return false;
     }
-    map_exec(buf, size);
+    if(!map_exec(buf, size)) {
+        tlib_printf(LOG_LEVEL_ERROR, "Failed to VirtualProtect code_gen_buffer");
+        return false;
+    }
     tcg_rw_buffer = tcg_rx_buffer = buf;
     code_gen_buffer_size = size;
     tcg_wx_diff = 0;

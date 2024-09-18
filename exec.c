@@ -313,16 +313,12 @@ static bool code_gen_alloc()
         code_gen_buffer_size = translation_cache_size_max;
     }
     // Add the extra space needed for the prologue
-    code_gen_buffer_size += TCG_PROLOGUE_SIZE;
-
-    if (!alloc_code_gen_buf(code_gen_buffer_size)) {
-        tlib_printf(LOG_LEVEL_DEBUG, "Failed to create code_gen_buffer of size %u", code_gen_buffer_size);
-        code_gen_buffer_size -= TCG_PROLOGUE_SIZE;
+    uint64_t alloc_size = code_gen_buffer_size + TCG_PROLOGUE_SIZE;
+    if (!alloc_code_gen_buf(alloc_size)) {
+        tlib_printf(LOG_LEVEL_WARNING, "Failed to create code_gen_buffer of size %u", alloc_size);
         return false;
     }
 
-    // There is now an extra TCG_PROLOGUE_SIZE amount bytes avaible at the end of the block
-    code_gen_buffer_size -= TCG_PROLOGUE_SIZE;
     // Notify that the translation cache has changed
     tlib_on_translation_cache_size_change(code_gen_buffer_size);
     code_gen_buffer_max_size = code_gen_buffer_size - TCG_MAX_CODE_SIZE - TCG_MAX_SEARCH_SIZE;
@@ -338,10 +334,10 @@ static bool code_gen_alloc()
 }
 
 // Attempts to expand the code_gen_buffer, keeping the same size if the larger allocation fails
-static void code_gen_try_expand()
+static bool code_gen_try_expand()
 {
     if (code_gen_buffer_size >= MAX_CODE_GEN_BUFFER_SIZE) {
-        return;
+        return false;
     }
 
     tlib_printf(LOG_LEVEL_DEBUG, "Trying to expand code_gen_buffer size from %" PRIu64 " to %" PRIu64, code_gen_buffer_size, code_gen_buffer_size * 2);
@@ -351,17 +347,22 @@ static void code_gen_try_expand()
 
     /* After increasing the size, allocate the buffer again. Note, that it might end in a different location in memory */
     code_gen_buffer_size *= 2;
+    bool did_expand;
     if (!code_gen_alloc()) {
         // The larger buffer failed to allocate, so we try the old size again
+        did_expand = false;
         code_gen_buffer_size /= 2;
         if (!code_gen_alloc()) {
             // Same old size failed to allocate, system is either out of memory or we are in a corrupted state, so we just crash
             tlib_abort("Failed to reallocate code_gen_buffer after attempted expansion, did the system run out of memory?");
-            return;
+            return false;
         }
+    } else {
+        did_expand = true;
     }
 
     code_gen_ptr = tcg_rw_buffer;
+    return did_expand;
 }
 
 void code_gen_free(void)

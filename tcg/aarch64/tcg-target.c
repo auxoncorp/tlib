@@ -232,11 +232,13 @@ static inline void tcg_out_calli(TCGContext *s, tcg_target_ulong addr)
 {
     // The target address can either be one we have generated, or somehting outside that.
     // So we need to check if the target has to be translated
+    tcg_target_ulong target;
     if (is_ptr_in_rw_buf((const void*)addr)) {
-        tcg_out_movi(s, 0, TCG_TMP_REG, (tcg_target_ulong) rw_ptr_to_rx((void*)addr));
+        target = (tcg_target_ulong) rw_ptr_to_rx((void*)addr);
     } else {
-        tcg_out_movi(s, 0, TCG_TMP_REG, addr);
+        target = addr;
     }
+    tcg_out_movi(s, 0, TCG_TMP_REG, target);
     tcg_out_blr(s, TCG_TMP_REG);
 }
 // Helper function to emit STP, store pair instructions with offset adressing mode (i.e no changing the base register)
