@@ -85,7 +85,7 @@ if(${CMAKE_HOST_SYSTEM_NAME} STREQUAL Linux AND ${HOST_ARCH} STREQUAL i386 AND $
     set(WRAP_MEMCPY_OPT -Wl,--wrap=memcpy)
 endif()
 
-# -z flag does not work windows
+# -z flag does not work on Windows
 if ((NOT (${CMAKE_HOST_SYSTEM_NAME} MATCHES "(Windows|CYGWIN)" )) AND ("${C_COMPILER_ID}" STREQUAL "GNU"))
     set (Z_OPTS -zdefs)
 endif()

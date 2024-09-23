@@ -19,12 +19,12 @@ if(NOT DEFINED HOST_ARCH)
         message(FATAL_ERROR "CMAKE_SYSTEM_PROCESSOR '${CMAKE_SYSTEM_PROCESSOR}' doesn't seem to be supported. Supported host architectures are: 'arm', 'i386', 'aarch64/arm64'. Please set 'HOST_ARCH' manually.")
     endif()
 endif()
-message(STATUS "Using HOST_ARCH: ${HOST_ARCH}")
+message(VERBOSE "Using HOST_ARCH: ${HOST_ARCH}")
 
 # Detect whether the host is 32- or 64-bit
 math (EXPR WORD_SIZE_FOUND "${CMAKE_SIZEOF_VOID_P} * 8")
 set (HOST_WORD_SIZE "${WORD_SIZE_FOUND}" CACHE STRING "Host word size")
-message(STATUS "Using HOST_WORD_SIZE: ${HOST_WORD_SIZE}")
+message(VERBOSE "Using HOST_WORD_SIZE: ${HOST_WORD_SIZE}")
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 	set(CMAKE_BUILD_TYPE "Release" CACHE
@@ -59,7 +59,7 @@ endif()
 option (TARGET_BIG_ENDIAN "Target big endian" OFF)
 set (TARGET_ARCH "" CACHE STRING "Target architecture")
 set (TARGET_WORD_SIZE "32" CACHE STRING "Target word size")
-message(STATUS "Target is: ${TARGET_WORD_SIZE}-bit ${TARGET_ARCH}")
+message(VERBOSE "Target is: ${TARGET_WORD_SIZE}-bit ${TARGET_ARCH}")
 
 set_property (CACHE HOST_ARCH PROPERTY STRINGS i386 arm aarch64)
 set_property (CACHE TARGET_ARCH PROPERTY STRINGS i386 x86_64 arm arm-m arm64 sparc ppc ppc64 riscv riscv64 xtensa)
