@@ -55,7 +55,7 @@ void* rx_ptr_to_rw(const void *ptr)
     return (void*) (ptr + tcg_wx_diff);
 }
 
-#if defined(__linux__) || defined(__APPLE__)
+#if (defined(__linux__) || defined(__APPLE__)) && (!defined(__aarch64__))
 static bool alloc_code_gen_buf_unified(uint64_t size)
 {
     // No write/execute splitting
@@ -78,7 +78,7 @@ void free_code_gen_buf()
 }
 #endif
 
-#if defined(__linux__)
+#if defined(__linux__) && defined(__aarch64__)
 static bool alloc_code_gen_buf_split(uint64_t size)
 {
     // Split writable and executable mapping
@@ -116,7 +116,7 @@ static bool alloc_code_gen_buf_split(uint64_t size)
     tcg_wx_diff = tcg_rw_buffer - tcg_rx_buffer;
     return true;
 }
-#elif defined(__APPLE__)
+#elif defined(__APPLE__) && defined(__aarch64__)
 static bool alloc_code_gen_buf_split(uint64_t size)
 {
     mach_vm_address_t rw, rx;
@@ -157,12 +157,6 @@ static bool map_exec(void *addr, long size)
     DWORD old_protect;
     return (bool) VirtualProtect(addr, size, PAGE_EXECUTE_READWRITE, &old_protect);
 }
-static bool alloc_code_gen_buf_split(uint64_t size)
-{
-    // Split buffer not supported on Windows
-    tlib_abort("WX split buffer not supported on Windows");
-    return false;
-}
 static bool alloc_code_gen_buf_unified(uint64_t size)
 {
     uint8_t *buf = tlib_malloc(size);
@@ -187,13 +181,8 @@ void free_code_gen_buf()
 bool alloc_code_gen_buf(uint64_t size)
 {
 #if defined(__aarch64__)
-    bool split_wx = true;
+    return alloc_code_gen_buf_split(size);
 #else
-    bool split_wx = false;
+    return alloc_code_gen_buf_unified(size);
 #endif
-    if (split_wx) {
-        return alloc_code_gen_buf_split(size);
-    } else {
-        return alloc_code_gen_buf_unified(size);
-    }
 }
