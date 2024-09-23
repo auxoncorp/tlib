@@ -70,6 +70,8 @@ static bool alloc_code_gen_buf_unified(uint64_t size)
     tcg_wx_diff = 0;
     return true;
 }
+#endif
+#if (defined(__linux__) || defined(__APPLE__))
 void free_code_gen_buf()
 {
     // If not using split buffers the second one will fail, but this causes no issues
