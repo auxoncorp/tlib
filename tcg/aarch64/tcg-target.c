@@ -731,9 +731,16 @@ static void tcg_target_init(TCGContext *s)
 static void tcg_target_qemu_prologue(TCGContext *s)
 {
     // Prologue
+
+    // The ARMv8 calling conventions allow compilers to put temporary values
+    // up to 16 bytes BELOW the current stack pointer, the so called red zone
+    // Normally the compiler will not do this for external calls, but the jump to generated
+    // code is not treated as an external function call so there might be data we must preserve there
+    // To do this we first move the SP 16 bytes down before doing anything else
+    tcg_out_subi(s, TCG_REG_SP, TCG_REG_SP, 16);
+    // Make space on the stack for callee saved registers
+    tcg_out_subi(s, TCG_REG_SP, TCG_REG_SP, 80);
     // aarch64 calling conventions needs us to save R19-R30
-    // In 64-bit arm we can only save a pair of registers, so here be a lot of instructions
-    tcg_out_subi(s, TCG_REG_SP, TCG_REG_SP, 80); // Make space on the stack
     tcg_out_stp(s, TCG_REG_R19, TCG_REG_R20, TCG_REG_SP, 0);
     tcg_out_stp(s, TCG_REG_R21, TCG_REG_R22, TCG_REG_SP, 16);
     tcg_out_stp(s, TCG_REG_R23, TCG_REG_R24, TCG_REG_SP, 32);
@@ -755,6 +762,8 @@ static void tcg_target_qemu_prologue(TCGContext *s)
     tcg_out_ldp(s, TCG_REG_R21, TCG_REG_R22, TCG_REG_SP, 16);
     tcg_out_ldp(s, TCG_REG_R19, TCG_REG_R20, TCG_REG_SP, 0);
     tcg_out_addi(s, TCG_REG_SP, TCG_REG_SP, 80); // Pop the stack
+    // Restore the SP above the possible temporary values
+    tcg_out_addi(s, TCG_REG_SP, TCG_REG_SP, 16);
     // Return based on the link address
     tcg_out_ret(s, TCG_REG_R30);
 }
