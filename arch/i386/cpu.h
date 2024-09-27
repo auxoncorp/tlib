@@ -320,6 +320,7 @@
 #define MSR_MC0_STATUS           0x401
 #define MSR_MC0_ADDR             0x402
 #define MSR_MC0_MISC             0x403
+#define MSR_ICR                  0x830
 
 #define MSR_EFER                 0xc0000080
 
@@ -468,6 +469,8 @@
 
 #define EXCP_SYSCALL             0x100/* only happens in user only emulation
                                          for syscall instruction */
+#define LAPIC_ICR_LOW 0xfee00300
+#define LAPIC_ICR_HIGH 0xfee00310
 
 /* i386-specific interrupt pending bits.  */
 #define CPU_INTERRUPT_SMI        CPU_INTERRUPT_TGT_EXT_2

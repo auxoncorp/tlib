@@ -3085,6 +3085,11 @@ void helper_wrmsr(void)
     case MSR_IA32_MISC_ENABLE:
         env->msr_ia32_misc_enable = val;
         break;
+    case MSR_ICR:
+        // firstly set high part, after setting lower, the IPI is sent
+        tlib_write_double_word(LAPIC_ICR_HIGH, (uint32_t)(val >> 32));
+        tlib_write_double_word(LAPIC_ICR_LOW, (uint32_t)val);
+        break;
     default:
         if ((uint32_t)ECX >= MSR_MC0_CTL && (uint32_t)ECX < MSR_MC0_CTL + (4 * env->mcg_cap & 0xff)) {
             uint32_t offset = (uint32_t)ECX - MSR_MC0_CTL;
