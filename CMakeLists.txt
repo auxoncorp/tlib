@@ -3,7 +3,7 @@ include (ExternalProject)
 
 project (tlib)
 
-include (shared.cmake)
+include (common.cmake)
 
 set(TLIB_COMMIT_SHA "" CACHE STRING "Current tlib commit SHA")
 if(NOT TLIB_COMMIT_SHA)

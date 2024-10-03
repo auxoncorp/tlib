@@ -1,4 +1,4 @@
-# Shared logic between tlib's CMakelists and Renode's
+# Shared logic between tlib's CMakelists and its dependants
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(DEBUG_DEFS "-DDEBUG -DDEBUG_ON")
