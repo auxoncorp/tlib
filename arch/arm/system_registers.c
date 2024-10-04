@@ -846,6 +846,37 @@ static ARMCPRegInfo feature_pmsa_registers[] = {
     ARM32_CP_REG_DEFINE(RGNR,             15,   0,   6,   2,   0,   1, RW, RW_FNS(c6_rgnr))     // RGNR, MPU Region Number Register
 };
 
+// Based on https://developer.arm.com/documentation/ddi0460/d/System-Control/Register-descriptions/Register-allocation
+static ARMCPRegInfo cortex_r5_registers[] = {
+    // The params are:  name              cp, op1, crn, crm, op2,  el, extra_type, ...
+    ARM32_CP_REG_DEFINE(SACTLR,           15,   0,  15,   0,   0,   1, RW)  // Secondary Auxiliary Control Register
+
+    // Peripheral interface region registers, names are based on their related signals:
+    // https://developer.arm.com/documentation/ddi0460/d/Signal-Descriptions/Configuration-signals
+    ARM32_CP_REG_DEFINE(PPXR,             15,   0,  15,   0,   1,   1, RW)  // LLPP Normal AXI Peripheral Interface Region Register
+    ARM32_CP_REG_DEFINE(PPVR,             15,   0,  15,   0,   2,   1, RW)  // LLPP Virtual AXI Peripheral Interface Region Register
+    ARM32_CP_REG_DEFINE(PPHR,             15,   0,  15,   0,   3,   1, RW)  // AHB Peripheral Interface Region Register
+
+    // Validation registers, names are based on their related signals:
+    // https://developer.arm.com/documentation/ddi0460/d/Signal-Descriptions/Validation-signals
+    ARM32_CP_REG_DEFINE(NVALIRQENSETR,    15,   0,  15,   1,   0,   1, RW)  // nVAL IRQ Enable Set Register
+    ARM32_CP_REG_DEFINE(NVALFIQENSETR,    15,   0,  15,   1,   1,   1, RW)  // nVAL FIQ Enable Set Register
+    ARM32_CP_REG_DEFINE(NVALRESETENSETR,  15,   0,  15,   1,   2,   1, RW)  // nVAL Reset Enable Set Register
+    ARM32_CP_REG_DEFINE(VALEDBGRQENSETR,  15,   0,  15,   1,   3,   1, RW)  // VAL Debug Request Enable Set Register
+    ARM32_CP_REG_DEFINE(NVALIRQENCLRR,    15,   0,  15,   1,   4,   1, RW)  // nVAL IRQ Enable Clear Register
+    ARM32_CP_REG_DEFINE(NVALFIQENCLRR,    15,   0,  15,   1,   5,   1, RW)  // nVAL FIQ Enable Clear Register
+    ARM32_CP_REG_DEFINE(NVALRESETENCLRR,  15,   0,  15,   1,   6,   1, RW)  // nVAL Reset Enable Clear Register
+    ARM32_CP_REG_DEFINE(VALEDBGRQENCLRR,  15,   0,  15,   1,   7,   1, RW)  // VAL Debug Request Enable Clear Register
+
+    ARM32_CP_REG_DEFINE(BOR1,             15,   0,  15,   2,   0,   1, RO)  // Build Options Register 1
+    ARM32_CP_REG_DEFINE(BOR2,             15,   0,  15,   2,   1,   1, RO)  // Build Options Register 2
+    ARM32_CP_REG_DEFINE(POR,              15,   0,  15,   2,   7,   1, RO)  // Pin Options Register
+
+    ARM32_CP_REG_DEFINE(CFLR,             15,   0,  15,   3,   0,   1, RW)  // Correctable Fault Location Register
+    ARM32_CP_REG_DEFINE(DCIALLR,          15,   0,  15,   5,   0,   1, WO)  // Data Cache Invalidate all Register
+    ARM32_CP_REG_DEFINE(CSOR,             15,   0,  15,  14,   0,   1, WO)  // Cache Size Override Register
+};
+
 // Based on https://developer.arm.com/documentation/100400/0002/system-control/register-summary/implementation-defined-registers
 static ARMCPRegInfo cortex_r8_registers[] = {
     // The params are:  name              cp, op1, crn, crm, op2,  el, extra_type, ...
@@ -1103,6 +1134,10 @@ inline static int count_extra_registers(const CPUState *env)
     }
 
     switch (env->cp15.c0_cpuid) {
+        case ARM_CPUID_CORTEXR5:
+        case ARM_CPUID_CORTEXR5F:
+            extra_regs += ARM_CP_ARRAY_COUNT_ANY(cortex_r5_registers);
+            break;
         case ARM_CPUID_CORTEXR8:
             extra_regs += ARM_CP_ARRAY_COUNT_ANY(cortex_r8_registers);
             break;
@@ -1197,6 +1232,10 @@ inline static void populate_ttable(CPUState *env)
     }
 
     switch (env->cp15.c0_cpuid) {
+        case ARM_CPUID_CORTEXR5:
+        case ARM_CPUID_CORTEXR5F:
+            regs_array_add(env, cortex_r5_registers);
+            break;
         case ARM_CPUID_CORTEXR8:
             regs_array_add(env, cortex_r8_registers);
             break;
