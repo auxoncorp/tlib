@@ -57,6 +57,15 @@ static inline void handle_configuration_signal(CPUState *env, ConfigurationSigna
         case IN_PERIPHERALS_BASE:
             env->cp15.c15_cbar = state.peripherals_base << 13;
             break;
+        case IN_AHB_REGION_REGISTER:
+            env->cp15.c15_ahb_region = state.ahb_region_register;
+            break;
+        case IN_AXI_REGION_REGISTER:
+            env->cp15.c15_axi_region = state.axi_region_register;
+            break;
+        case IN_VIRTUAL_AXI_REGION_REGISTER:
+            env->cp15.c15_virtual_axi_region = state.virtual_axi_region_register;
+            break;
         default:
             tlib_abortf("Unknown configuration signal: %d", signal_id);
     }

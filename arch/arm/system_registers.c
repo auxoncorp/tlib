@@ -853,9 +853,9 @@ static ARMCPRegInfo cortex_r5_registers[] = {
 
     // Peripheral interface region registers, names are based on their related signals:
     // https://developer.arm.com/documentation/ddi0460/d/Signal-Descriptions/Configuration-signals
-    ARM32_CP_REG_DEFINE(PPXR,             15,   0,  15,   0,   1,   1, RW)  // LLPP Normal AXI Peripheral Interface Region Register
-    ARM32_CP_REG_DEFINE(PPVR,             15,   0,  15,   0,   2,   1, RW)  // LLPP Virtual AXI Peripheral Interface Region Register
-    ARM32_CP_REG_DEFINE(PPHR,             15,   0,  15,   0,   3,   1, RW)  // AHB Peripheral Interface Region Register
+    ARM32_CP_REG_DEFINE(PPXR,             15,   0,  15,   0,   1,   1, RW, FIELD(cp15.c15_axi_region))          // LLPP Normal AXI Peripheral Interface Region Register
+    ARM32_CP_REG_DEFINE(PPVR,             15,   0,  15,   0,   2,   1, RW, FIELD(cp15.c15_virtual_axi_region))  // LLPP Virtual AXI Peripheral Interface Region Register
+    ARM32_CP_REG_DEFINE(PPHR,             15,   0,  15,   0,   3,   1, RW, FIELD(cp15.c15_ahb_region))          // AHB Peripheral Interface Region Register
 
     // Validation registers, names are based on their related signals:
     // https://developer.arm.com/documentation/ddi0460/d/Signal-Descriptions/Validation-signals

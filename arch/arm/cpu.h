@@ -243,6 +243,9 @@ typedef struct CPUState {
         uint32_t c15_decc_entries[3];    /* Cortex-R8: Data ECC entry no. 0-2 */
         uint32_t c15_iecc_entries[3];    /* Cortex-R8: Instruction ECC entry no. 0-2 */
         uint32_t c15_tcm_ecc_entries[2]; /* Cortex-R8: Data/Instruction TCM ECC entry */
+        uint32_t c15_ahb_region;         /* Cortex-R5: AHB peripheral interface region register */
+        uint32_t c15_axi_region;         /* Cortex-R5: LLPP Normal AXI peripheral interface region register */
+        uint32_t c15_virtual_axi_region; /* Cortex-R5: LLPP Virtual AXI peripheral interface region register */
     } cp15;
 
     struct {
