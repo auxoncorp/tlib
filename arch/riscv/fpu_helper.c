@@ -384,7 +384,6 @@ target_ulong helper_fcvt_hw_s(CPUState *env, uint64_t frs1, uint64_t rm)
     set_float_rounding_mode(RM, &env->fp_status);
     frs1 = float32_to_int16(frs1, &env->fp_status);
     set_fp_exceptions();
-    mark_fs_dirty();
     return frs1;
 }
 
@@ -394,7 +393,6 @@ target_ulong helper_fcvt_hwu_s(CPUState *env, uint64_t frs1, uint64_t rm)
     set_float_rounding_mode(RM, &env->fp_status);
     frs1 = (int16_t)float32_to_uint16(frs1, &env->fp_status);
     set_fp_exceptions();
-    mark_fs_dirty();
     return frs1;
 }
 
@@ -404,7 +402,6 @@ target_ulong helper_fcvt_w_s(CPUState *env, uint64_t frs1, uint64_t rm)
     set_float_rounding_mode(RM, &env->fp_status);
     frs1 = float32_to_int32(frs1, &env->fp_status);
     set_fp_exceptions();
-    mark_fs_dirty();
     return frs1;
 }
 
@@ -414,7 +411,6 @@ target_ulong helper_fcvt_wu_s(CPUState *env, uint64_t frs1, uint64_t rm)
     set_float_rounding_mode(RM, &env->fp_status);
     frs1 = (!isNaNF32UI(frs1) && signF32UI(frs1)) ? 0 : (int32_t)float32_to_uint32(frs1, &env->fp_status);
     set_fp_exceptions();
-    mark_fs_dirty();
     return frs1;
 }
 
@@ -424,7 +420,6 @@ uint64_t helper_fcvt_l_s(CPUState *env, uint64_t frs1, uint64_t rm)
     set_float_rounding_mode(RM, &env->fp_status);
     frs1 = float32_to_int64(frs1, &env->fp_status);
     set_fp_exceptions();
-    mark_fs_dirty();
     return frs1;
 }
 
@@ -434,7 +429,6 @@ uint64_t helper_fcvt_lu_s(CPUState *env, uint64_t frs1, uint64_t rm)
     set_float_rounding_mode(RM, &env->fp_status);
     frs1 = (!isNaNF32UI(frs1) && signF32UI(frs1)) ? 0 : float32_to_uint64(frs1, &env->fp_status);
     set_fp_exceptions();
-    mark_fs_dirty();
     return frs1;
 }
 
@@ -503,7 +497,6 @@ uint32_t helper_fcvt_wu_s_rod(CPUState *env, uint32_t frs1)
     require_fp;
     frs1 = float32_to_uint32_rod(frs1, &env->fp_status);
     set_fp_exceptions();
-    mark_fs_dirty();
     return frs1;
 }
 
@@ -512,7 +505,6 @@ int32_t helper_fcvt_w_s_rod(CPUState *env, uint32_t frs1)
     require_fp;
     frs1 = float32_to_int32_rod(frs1, &env->fp_status);
     set_fp_exceptions();
-    mark_fs_dirty();
     return frs1;
 }
 
@@ -521,7 +513,6 @@ uint64_t helper_fcvt_lu_d_rod(CPUState *env, uint64_t frs1)
     require_fp;
     frs1 = float64_to_uint64_rod(frs1, &env->fp_status);
     set_fp_exceptions();
-    mark_fs_dirty();
     return frs1;
 }
 
@@ -530,7 +521,6 @@ int64_t helper_fcvt_l_d_rod(CPUState *env, uint64_t frs1)
     require_fp;
     frs1 = float64_to_int64_rod(frs1, &env->fp_status);
     set_fp_exceptions();
-    mark_fs_dirty();
     return frs1;
 }
 
@@ -539,7 +529,6 @@ uint64_t helper_fcvt_lu_s_rod(CPUState *env, uint32_t frs1)
     require_fp;
     frs1 = float32_to_uint64_rod(frs1, &env->fp_status);
     set_fp_exceptions();
-    mark_fs_dirty();
     return frs1;
 }
 
@@ -548,7 +537,6 @@ int64_t helper_fcvt_l_s_rod(CPUState *env, uint32_t frs1)
     require_fp;
     frs1 = float32_to_int64_rod(frs1, &env->fp_status);
     set_fp_exceptions();
-    mark_fs_dirty();
     return frs1;
 }
 
@@ -651,7 +639,6 @@ uint64_t helper_fcvt_s_d(CPUState *env, uint64_t rs1, uint64_t rm)
     set_float_rounding_mode(RM, &env->fp_status);
     rs1 = float64_to_float32(rs1, &env->fp_status);
     set_fp_exceptions();
-    mark_fs_dirty();
     return rs1;
 }
 
@@ -718,7 +705,6 @@ target_ulong helper_fcvt_w_d(CPUState *env, uint64_t frs1, uint64_t rm)
     set_float_rounding_mode(RM, &env->fp_status);
     frs1 = (int64_t)((int32_t)float64_to_int32(frs1, &env->fp_status));
     set_fp_exceptions();
-    mark_fs_dirty();
     return frs1;
 }
 
@@ -728,7 +714,6 @@ target_ulong helper_fcvt_wu_d(CPUState *env, uint64_t frs1, uint64_t rm)
     set_float_rounding_mode(RM, &env->fp_status);
     frs1 = (!isNaNF64UI(frs1) && signF64UI(frs1)) ? 0 : (int64_t)((int32_t)float64_to_uint32(frs1, &env->fp_status));
     set_fp_exceptions();
-    mark_fs_dirty();
     return frs1;
 }
 
@@ -738,7 +723,6 @@ uint64_t helper_fcvt_l_d(CPUState *env, uint64_t frs1, uint64_t rm)
     set_float_rounding_mode(RM, &env->fp_status);
     frs1 = float64_to_int64(frs1, &env->fp_status);
     set_fp_exceptions();
-    mark_fs_dirty();
     return frs1;
 }
 
@@ -799,7 +783,6 @@ target_ulong helper_fcvt_wu_d_rod(CPUState *env, uint64_t frs1)
     require_fp;
     frs1 = (int64_t)((int32_t)float64_to_uint32_rod(frs1, &env->fp_status));
     set_fp_exceptions();
-    mark_fs_dirty();
     return frs1;
 }
 
@@ -808,7 +791,6 @@ target_ulong helper_fcvt_w_d_rod(CPUState *env, uint64_t frs1)
     require_fp;
     frs1 = (int64_t)((int32_t)float64_to_int32_rod(frs1, &env->fp_status));
     set_fp_exceptions();
-    mark_fs_dirty();
     return frs1;
 }
 
@@ -817,7 +799,6 @@ uint64_t helper_fcvt_s_d_rod(CPUState *env, uint64_t rs1)
     require_fp;
     rs1 = float64_to_float32_rod(rs1, &env->fp_status);
     set_fp_exceptions();
-    mark_fs_dirty();
     return rs1;
 }
 
