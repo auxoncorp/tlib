@@ -346,7 +346,6 @@ target_ulong helper_fle_s(CPUState *env, uint64_t frs1, uint64_t frs2)
     require_fp;
     frs1 = float32_le(frs1, frs2, &env->fp_status);
     set_fp_exceptions();
-    mark_fs_dirty();
     return frs1;
 }
 
@@ -355,7 +354,6 @@ target_ulong helper_flt_s(CPUState *env, uint64_t frs1, uint64_t frs2)
     require_fp;
     frs1 = float32_lt(frs1, frs2, &env->fp_status);
     set_fp_exceptions();
-    mark_fs_dirty();
     return frs1;
 }
 
@@ -374,7 +372,6 @@ target_ulong helper_feq_s(CPUState *env, uint64_t frs1, uint64_t frs2)
     require_fp;
     frs1 = float32_eq_quiet(frs1, frs2, &env->fp_status);
     set_fp_exceptions();
-    mark_fs_dirty();
     return frs1;
 }
 
@@ -667,7 +664,6 @@ target_ulong helper_fle_d(CPUState *env, uint64_t frs1, uint64_t frs2)
     require_fp;
     frs1 = float64_le(frs1, frs2, &env->fp_status);
     set_fp_exceptions();
-    mark_fs_dirty();
     return frs1;
 }
 
@@ -676,7 +672,6 @@ target_ulong helper_flt_d(CPUState *env, uint64_t frs1, uint64_t frs2)
     require_fp;
     frs1 = float64_lt(frs1, frs2, &env->fp_status);
     set_fp_exceptions();
-    mark_fs_dirty();
     return frs1;
 }
 
@@ -695,7 +690,6 @@ target_ulong helper_feq_d(CPUState *env, uint64_t frs1, uint64_t frs2)
     require_fp;
     frs1 = float64_eq_quiet(frs1, frs2, &env->fp_status);
     set_fp_exceptions();
-    mark_fs_dirty();
     return frs1;
 }
 
@@ -972,7 +966,6 @@ target_ulong helper_fle_h(CPUState *env, uint64_t frs1, uint64_t frs2)
     frs1 = f16_le(f1, f2);
     
     set_fp_exceptions();
-    mark_fs_dirty();
     return frs1;
 }
 
@@ -986,7 +979,6 @@ target_ulong helper_flt_h(CPUState *env, uint64_t frs1, uint64_t frs2)
     frs1 = f16_lt(f1, f2);
     
     set_fp_exceptions();
-    mark_fs_dirty();
     return frs1;
 }
 
@@ -1010,7 +1002,6 @@ target_ulong helper_feq_h(CPUState *env, uint64_t frs1, uint64_t frs2)
     frs1 = f16_eq(f1, f2);
     
     set_fp_exceptions();
-    mark_fs_dirty();
     return frs1;
 }
 
