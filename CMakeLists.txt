@@ -49,7 +49,6 @@ include_directories (
     tcg
     softfloat-2
     include
-    include_empty
     tcg/${HOST_ARCH}
     arch/${TARGET_ACTUAL_ARCH}
     ${HEADERS_ADDITIONAL}
