@@ -20,11 +20,11 @@ remove_definitions(-Wall -Wextra -Wno-unused-parameter -Wno-sign-compare)
 add_subdirectory(tcg)
 add_definitions(-Wall -Wextra -Wno-unused-parameter -Wno-sign-compare)
 
-set(SOFTFLOAT_SPECIALIZED_ARCHITECTURE "8086")
 if("${TARGET_ACTUAL_ARCH}" STREQUAL "riscv" OR "${TARGET_ACTUAL_ARCH}" STREQUAL "riscv64")
     set(SOFTLOAT_SPECIALIZED_ARCHITECTURE "RISCV")
+    add_subdirectory(softfloat-3)
+    set(SOFTFLOAT3 softfloat-3)
 endif()
-add_subdirectory (softfloat-3 EXCLUDE_FROM_ALL)
 
 if (NOT CMAKE_C_COMPILER_ID MATCHES "(clang)" AND NOT "${TARGET_ACTUAL_ARCH}" STREQUAL "arm64")
     # Clang throws warnings from the arm64 target's function stubs
@@ -95,7 +95,7 @@ target_link_libraries (tlib
     ${Z_OPTS}
 
     ${MATH_LIB_LINK_ARG}
-    softfloat-3
     pthread
+    ${SOFTFLOAT3}
     tcg
     )
