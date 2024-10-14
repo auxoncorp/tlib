@@ -41,8 +41,8 @@ add_definitions (
     )
 
 if("${TARGET_ACTUAL_ARCH}" STREQUAL "arm" OR "${TARGET_ACTUAL_ARCH}" STREQUAL "arm64")
-    file (GLOB SOURCES_ADDITIONAL "arch/arm_common/*.c")
-    set (HEADERS_ADDITIONAL "arch/arm_common")
+    file (GLOB ARM_COMMON_SRC "arch/arm_common/*.c")
+    set (ARM_COMMON_INCL "arch/arm_common")
 endif()
 
 include_directories (
@@ -51,7 +51,7 @@ include_directories (
     include
     tcg/${HOST_ARCH}
     arch/${TARGET_ACTUAL_ARCH}
-    ${HEADERS_ADDITIONAL}
+    ${ARM_COMMON_INCL}
     )
 
 file (GLOB SOURCES
@@ -60,7 +60,7 @@ file (GLOB SOURCES
     "arch/*.c"
     "external/*.c"
     "arch/${TARGET_ACTUAL_ARCH}/*.c"
-    ${SOURCES_ADDITIONAL}
+    ${ARM_COMMON_SRC}
     )
 
 set(TLIB_LIB_TYPE "SHARED" CACHE STRING "")
