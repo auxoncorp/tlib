@@ -21,7 +21,7 @@ add_subdirectory(tcg)
 add_definitions(-Wall -Wextra -Wno-unused-parameter -Wno-sign-compare)
 
 if("${TARGET_ACTUAL_ARCH}" STREQUAL "riscv" OR "${TARGET_ACTUAL_ARCH}" STREQUAL "riscv64")
-    set(SOFTLOAT_SPECIALIZED_ARCHITECTURE "RISCV")
+    set(SOFTFLOAT_SPECIALIZED_ARCHITECTURE "RISCV")
     add_subdirectory(softfloat-3)
     set(SOFTFLOAT3 softfloat-3)
 endif()
