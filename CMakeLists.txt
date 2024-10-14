@@ -45,7 +45,6 @@ if(TLIB_PROFILING_BUILD)
         # and call traces in reports will become less readable if using frame pointers for stack unwinding.
         -fno-omit-frame-pointer
         -g3
-        -DTLIB_PROFILING_BUILD=1
     )
 elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
         add_definitions(-fomit-frame-pointer)
