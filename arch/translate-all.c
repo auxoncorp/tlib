@@ -403,9 +403,14 @@ static inline int adjust_instruction_count(TranslationBlock *tb, bool include_la
     if(executed_instructions > 0 && !include_last_instruction) {
         executed_instructions--;
     }
-    if (executed_instructions != -1 && tb->instructions_count_dirty) {
-        cpu->instructions_count_value -= (tb->icount - executed_instructions);
-        cpu->instructions_count_total_value -= (tb->icount - executed_instructions);
+
+    // it might happen that `cpu->instructions_count_value` was recently "cleared"
+    // by reading it's value from outside; in such case we cannot compensate
+    // the instructions counter
+    uint32_t diff = tb->icount - executed_instructions;
+    if (cpu->instructions_count_value >= diff && executed_instructions != -1 && tb->instructions_count_dirty) {
+        cpu->instructions_count_value -= diff;
+        cpu->instructions_count_total_value -= diff;
         tb->instructions_count_dirty = 0;
     }
     return executed_instructions;
