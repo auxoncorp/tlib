@@ -6,7 +6,6 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(DEBUG_DEF "-DDEBUG")
 endif()
 
-option (TLIB_PROFILING_BUILD "Build optimized for profiling" OFF)
 option (BIG_ENDIAN "Big endian" OFF)
 set (HOST_ARCH "" CACHE STRING "Host architecture")
 set_property (CACHE HOST_ARCH PROPERTY STRINGS i386 arm)
@@ -24,19 +23,6 @@ string (TOLOWER ${HOST_ARCH} HOST_LOWER)
 
 if(BIG_ENDIAN)
     set (BIG_ENDIAN_DEF -DTARGET_WORDS_BIGENDIAN)
-endif()
-
-if(TLIB_PROFILING_BUILD)
-    add_definitions (
-        # see main CMakeLists.txt for comment why we need this
-        -fno-omit-frame-pointer
-        -g3
-        -DTLIB_PROFILING_BUILD=1
-    )
-elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
-    add_definitions (
-        -fomit-frame-pointer
-    )
 endif()
 
 add_definitions (

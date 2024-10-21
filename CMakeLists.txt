@@ -128,6 +128,12 @@ if("${TARGET_ACTUAL_ARCH}" STREQUAL "riscv" OR "${TARGET_ACTUAL_ARCH}" STREQUAL 
     set(SOFTFLOAT_SPECIALIZED_ARCHITECTURE "RISCV")
     add_subdirectory(softfloat-3)
     set(SOFTFLOAT3 softfloat-3)
+
+    if(CMAKE_BUILD_TYPE STREQUAL "Release" AND NOT TLIB_PROFILING_BUILD)
+        target_compile_definitions(softfloat-3 PRIVATE
+            INLINE_LEVEL=5
+        )
+    endif()
 endif()
 
 if (NOT CMAKE_C_COMPILER_ID MATCHES "(clang)" AND NOT "${TARGET_ACTUAL_ARCH}" STREQUAL "arm64")
