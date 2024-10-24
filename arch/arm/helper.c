@@ -1584,10 +1584,13 @@ static int get_phys_addr_mpu(CPUState *env, uint32_t address, int access_type, i
         base = env->cp15.c6_base_address[n];
         mask = (1ull << size) - 1;
 
+        /*
+         * NOTE(jon@auxon.io): NXP (S32K3XX) MPU's don't have the the usual alignment restrictions
         if (base & mask) {
-            /* Misaligned base addr to region */
+            // Misaligned base addr to region
             continue;
         }
+        */
         /* Check if the region is enabled */
         if (address >= base && address <= base + mask) {
             /* Check subregions, only if region size is equal to or bigger than 256 bytes (region size = 2^size) */
